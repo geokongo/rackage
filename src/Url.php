@@ -86,8 +86,10 @@ class Url {
 
 		$url = Registry::url();
 
-		// Strip query parameters from REQUEST_URI
-		$requestPath = strtok($_SERVER['REQUEST_URI'], '?');
+		// Strip query parameters from REQUEST_URI and decode URL encoding
+		// Decoding is necessary because Registry::url() stores decoded values
+		// but REQUEST_URI may contain encoded characters (especially with [B] flag)
+		$requestPath = rawurldecode(strtok($_SERVER['REQUEST_URI'], '?'));
 
 		if (!empty($url)) {
 			$base .= substr($requestPath, 0, strpos($requestPath, Registry::url()));

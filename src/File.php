@@ -270,6 +270,24 @@ class File {
     }
 
     /**
+     * Copy directory recursively
+     *
+     * Copies entire directory including all subdirectories and files.
+     *
+     * Examples:
+     *   File::copyDir('uploads/docs', 'backup/docs');
+     *   File::copyDir('app/templates', 'app/templates-backup');
+     *
+     * @param string $source Source directory path
+     * @param string $destination Destination directory path
+     * @return FileResponse
+     */
+    public static function copyDir($source, $destination)
+    {
+        return FileHandler::copyDir($source, $destination);
+    }
+
+    /**
      * Move/rename file
      *
      * Examples:
