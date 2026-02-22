@@ -9,7 +9,7 @@
  * Static Design:
  *   All methods are static - no instance creation required.
  *
- * Usage Patterns:
+ * Usage Patterns: 
  *
  *   // Case conversion
  *   Str::slug('My Blog Post');        // my-blog-post

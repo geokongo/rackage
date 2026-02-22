@@ -355,18 +355,89 @@ class View {
 
 
     /**
-     * Get compiled template contents without rendering
+     * Render template to string without sending to browser
+     *
+     * Fully renders a template file with template compilation and variable extraction,
+     * captures the output via output buffering, and returns it as a string.
+     * The rendered HTML is never sent to the browser.
+     *
+     * Use cases:
+     *   - Email bodies: render a template, pass HTML to mailer
+     *   - Plugin admin partials: render content area, return to controller wrapper
+     *   - PDF generation: capture HTML before passing to PDF library
+     *   - Any context where you need rendered HTML as a string
+     *
+     * Examples:
+     *   $html = View::get('emails/welcome', ['user' => $user]);
+     *   $partial = View::get('admin/vendors/index', ['vendors' => $vendors]);
+     *
+     * @param string $fileName View file path (resolved via view_paths)
+     * @param array $data Variables to pass to the template
+     * @return string Fully rendered HTML string
+     */
+    public static function get($fileName, array $data = [])
+    {
+        $allVariables = array_merge(self::$variables, $data);
+
+        extract($allVariables);
+
+        $shouldParse = Registry::settings()['template_engine'] !== false;
+
+        if ($shouldParse) {
+            $contents = self::getHeaderContent() . self::getContents($fileName, false);
+        } else {
+            $contents = self::getHeaderContent() . file_get_contents(Path::view($fileName));
+        }
+
+        ob_start();
+
+        if (DEV) {
+
+            $tmpDir = Registry::settings()['root'] . '/vault/tmp/';
+
+            if (!is_dir($tmpDir)) {
+                mkdir($tmpDir, 0755, true);
+            }
+
+            $filePath = $tmpDir . uniqid('view_', true) . '.php';
+            file_put_contents($filePath, $contents);
+
+            include $filePath;
+
+            unlink($filePath);
+        }
+        else {
+
+            TemplateStream::setContent($contents);
+
+            include 'rachie-template://render';
+
+            TemplateStream::clearContent();
+        }
+
+        $output = ob_get_clean();
+
+        self::$variables = [];
+
+        return $output;
+    }
+
+    /**
+     * Get compiled template code without rendering or executing
      *
      * Returns the compiled PHP code of a template file without executing it.
-     * Useful for debugging template compilation or generating email content.
+     * Transforms template directives (@if, @foreach, {{ }}, etc.) into raw PHP
+     * but does not run the result. Useful for debugging template compilation
+     * output or inspecting how directives are translated.
      *
      * Example:
-     *   $emailHtml = View::get('emails/welcome');
+     *   $phpCode = View::compile('emails/welcome');
+     *   // Returns: <?php echo htmlentities($user['name']); ?> etc.
      *
      * @param string $fileName View file path
-     * @return string Compiled PHP code
+     * @return string Compiled PHP code string
      */
-    public static function get($fileName)
+    public static function compile($fileName)
     {
         try {
             return self::getContents($fileName, false);
