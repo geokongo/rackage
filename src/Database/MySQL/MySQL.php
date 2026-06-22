@@ -225,10 +225,7 @@ class MySQL {
 		$instance = $this->service instanceof \MySQLi;
 
 		// Return true only if connected, is MySQLi instance, and not empty
-		if ($this->connected && $instance && !$empty)
-		{
-			return true;
-		}
+		if ($this->connected && $instance && !$empty)	return true;
 
 		// Otherwise connection is invalid
 		return false;
@@ -286,8 +283,8 @@ class MySQL {
 				);
 
 				// Check for connection errors
-				if ($this->service->connect_error)
-				{
+				if ($this->service->connect_error){
+
 					throw new DatabaseException(
 						"Unable to connect to Database service: " .
 						$this->service->connect_error
@@ -307,10 +304,7 @@ class MySQL {
 				// Mark connection as active
 				$this->connected = true;
 			}
-			catch(DatabaseException $exception)
-			{
-				$exception->errorShow();
-			}
+			catch(DatabaseException $exception){ throw $exception; }
 		}
 
 		return $this;
@@ -373,22 +367,22 @@ class MySQL {
 		try
 		{
 			// If no connection, attempt to establish one
-			if (!$this->validService())
-			{
+			if (!$this->validService())	{  
+
 				return $this->connect() !== false;
 			}
 
 			// Ping the MySQL server (may throw mysqli_sql_exception if connection lost)
 			try
 			{
-				if (!$this->service->ping())
-				{
+				if (!$this->service->ping()){
+
 					// Connection lost - attempt reconnection
 					$this->connected = false;
 					return $this->connect() !== false;
 				}
 			}
-			catch (\mysqli_sql_exception $e)
+			catch (\mysqli_sql_exception $exception)
 			{
 				// Ping failed (connection lost) - attempt reconnection
 				$this->connected = false;
@@ -398,11 +392,7 @@ class MySQL {
 			// Connection is healthy
 			return true;
 		}
-		catch(DatabaseException $exception)
-		{
-			$exception->errorShow();
-			return false;
-		}
+		catch(DatabaseException $exception)	{ throw $exception; }
 	}
 
 	/**
@@ -450,12 +440,7 @@ class MySQL {
 				'connected' => $this->connected
 			);
 		}
-		catch(DatabaseException $exception)
-		{
-			// Return empty array on error
-			$exception->errorShow();
-			return array();
-		}
+		catch(DatabaseException $exception) { throw $exception; }
 	}
 
 	// =========================================================================
@@ -544,26 +529,22 @@ class MySQL {
 			}
 
 			// Execute query with auto-reconnect on "server has gone away"
-			try
-			{
+			try	{
+
 				$result = $this->service->query($sql);
 			}
-			catch (\mysqli_sql_exception $e)
+			catch (\mysqli_sql_exception $exception)
 			{
 				// Check for "MySQL server has gone away" error (2006)
 				if ($this->service->errno == 2006){
 
 					// Attempt to reconnect and retry query once
-					if ($this->ping()) {
-						$result = $this->service->query($sql);
-					}
-					else{
-						throw $e; // Reconnection failed, re-throw
-					}
+					if ($this->ping()) $result = $this->service->query($sql);
+					else	throw $exception; // Reconnection failed, re-throw
 				}
 				else {
 					$sqlPreview = strlen($sql) > 500 ? substr($sql, 0, 500) . '...[truncated]' : $sql;
-					throw new DatabaseException($e->getMessage() . "\nSQL: " . $sqlPreview, $e->getCode());
+					throw new DatabaseException($exception->getMessage() . "\nSQL: " . $sqlPreview, $exception->getCode());
 				}
 			}
 
@@ -573,15 +554,11 @@ class MySQL {
 				if ($this->ping()) {
 					$result = $this->service->query($sql);
 				}
-			}
+			} 
 
 			return $result;
 		}
-		catch(DatabaseException $exception) {
-
-			$exception->errorShow();
-			throw $exception; // Re-throw so caller knows it failed
-		}
+		catch(DatabaseException $exception) { throw $exception; }
 	}
 
 	/**
@@ -620,39 +597,29 @@ class MySQL {
 				// Use real_query() + use_result() for unbuffered mode
 				$success = $this->service->real_query($sql);
 
-				if (!$success) {
-					return false;
-				}
+				if (!$success) return false;
 
 				// use_result() returns unbuffered result (fetches one row at a time)
 				$result = $this->service->use_result();
 				return $result;
 			}
-			catch (\mysqli_sql_exception $e)
+			catch (\mysqli_sql_exception $exception)
 			{
 				// Check for "MySQL server has gone away" error (2006)
 				if ($this->service->errno == 2006){
 					// Attempt to reconnect and retry query once
 					if ($this->ping()) {
 						$success = $this->service->real_query($sql);
-						if ($success) {
-							return $this->service->use_result();
-						}
+						
+						if ($success) return $this->service->use_result();
 						return false;
 					}
-					else{
-						throw $e; // Reconnection failed, re-throw
-					}
+					else throw $exception;
 				}
-				else {
-					throw $e; // Different error, re-throw
-				}
+				else throw $exception; // Different error, re-throw
 			}
 		}
-		catch(DatabaseException $exception) {
-			$exception->errorShow();
-			throw $exception; // Re-throw so caller knows it failed
-		}
+		catch(DatabaseException $exception) { throw $exception; }
 	}
 
 	/**
@@ -736,18 +703,15 @@ class MySQL {
 		try
 		{
 			// Require valid connection
-			if (!$this->validService())
-			{
+			if (!$this->validService())	{
+
 				throw new DatabaseException("Not connected to a valid database service");
 			}
 
 			// Escape special characters using charset-aware function
 			return $this->service->real_escape_string($value);
 		}
-		catch(DatabaseException $exception)
-		{
-			$exception->errorShow();
-		}
+		catch(DatabaseException $exception) { throw	$exception;	}
 	}
 
 	// =========================================================================
@@ -795,18 +759,15 @@ class MySQL {
 		try
 		{
 			// Require valid connection
-			if (!$this->validService())
-			{
+			if (!$this->validService()){
+
 				throw new DatabaseException("Not connected to a valid database service");
 			}
 
 			// Return auto-generated ID from last INSERT query
 			return $this->service->insert_id;
 		}
-		catch(DatabaseException $exception)
-		{
-			$exception->errorShow();
-		}
+		catch(DatabaseException $exception) { throw $exception; }
 	}
 
 	/**
@@ -853,18 +814,14 @@ class MySQL {
 		try
 		{
 			// Require valid connection
-			if (!$this->validService())
-			{
+			if (!$this->validService()) {
 				throw new DatabaseException("Not connected to a valid database service");
 			}
 
 			// Return number of rows affected by last query
 			return $this->service->affected_rows;
 		}
-		catch(DatabaseException $exception)
-		{
-			$exception->errorShow();
-		}
+		catch(DatabaseException $exception) { throw $exception; }
 	}
 
 	// =========================================================================
@@ -924,18 +881,15 @@ class MySQL {
 		try
 		{
 			// Require valid connection
-			if (!$this->validService())
-			{
+			if (!$this->validService())	{
+
 				throw new DatabaseException("Not connected to a valid database service");
 			}
 
 			// Return last error message from MySQLi
 			return $this->service->error;
 		}
-		catch(DatabaseException $exception)
-		{
-			$exception->errorShow();
-		}
+		catch(DatabaseException $exception) { throw	$exception; }
 	}
 
 }

@@ -18,7 +18,7 @@
  *   2. Build methods (buildSelect, buildInsert, etc.) compose SQL from stored properties
  *   3. Execution methods (all, first, save, delete) build SQL and execute via connector
  *   4. Response object contains results, metadata, and query performance metrics
- *
+ * 
  * Security:
  *   All values are escaped via quote() method which uses MySQLConnector->escape()
  *   WHERE clause uses sprintf with %s placeholders - values are quoted before sprintf
@@ -1212,20 +1212,17 @@ class MySQLQuery
 	 */
 	public function whereFulltext($columns, $search, $mode = 'natural')
 	{
-		if (!is_array($columns) || empty($columns))
-		{
+		if (!is_array($columns) || empty($columns))		{
 			throw new DatabaseException("Invalid columns array for whereFulltext clause", 1);
 		}
 
-		if (empty($search))
-		{
+		if (empty($search))		{
 			throw new DatabaseException("No search term provided for whereFulltext clause", 1);
 		}
 
 		$validModes = ['natural', 'boolean', 'expansion'];
 
-		if (!in_array($mode, $validModes))
-		{
+		if (!in_array($mode, $validModes))		{
 			throw new DatabaseException("Invalid search mode '{$mode}' for whereFulltext clause", 1);
 		}
 
@@ -2273,8 +2270,11 @@ class MySQLQuery
 
 				// Auto-prefix column with base table if joins exist and no table prefix
 				if (!empty($this->join) && !preg_match('/^\w+\./', $condition)){
-					
-					$condition = preg_replace('/^(\w+)/', $this->from . '.$1', $condition);
+
+					// Don't prepend table name if it's a full text search
+					if(stripos($condition, 'MATCH(') !== 0){
+						$condition = preg_replace('/^(\w+)/', $this->from . '.$1', $condition);			
+					}
 				}
 
 				// First condition has no operator prefix
