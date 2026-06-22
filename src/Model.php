@@ -634,6 +634,10 @@ class Model
 	 */
 	final public static function limit($limit, $page = 1)
 	{
+		// Cast to integers to avoid SQL injection
+		$limit 	= (int) $limit;
+		$page 	= (int) $page;
+
 		$instance = new static;
 		$instance->setTable();
 
@@ -1746,7 +1750,7 @@ class Model
 
 		return $instance->Query()->whereYear($column, $year);
 	}
-
+ 
 	/**
 	 * Paginate results with metadata
 	 *
@@ -1762,6 +1766,10 @@ class Model
 	 */
 	final public static function paginate($perPage = 15, $page = 1)
 	{
+		// Cast to integers to avoid SQL injections
+		$perPage 	= (int) $perPage;
+		$page 		= (int) $page;
+		
 		$instance = new static;
 		$instance->setTable();
 
