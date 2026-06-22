@@ -3,7 +3,7 @@
 use Rackage\Path;
 use Rackage\Registry;
 
-/**
+/** 
  * Log Helper
  *
  * Provides application logging with multiple severity levels and structured
@@ -348,68 +348,68 @@ class Log {
 	 * @param string $filename Log filename (stored in vault/logs/)
 	 * @return Log Instance for chaining
 	 */
-	public static function to($filename)
-	{
-		$instance = new self();
-		$instance->customFile = $filename;
-		return $instance;
-	}
+	// public static function to($filename)
+	// {
+	// 	$instance = new self();
+	// 	$instance->customFile = $filename;
+	// 	return $instance;
+	// }
 
-	/**
-	 * Instance: Log error to custom file
-	 *
-	 * Same as static error() but writes to custom file set via to().
-	 *
-	 * @param string $message Error message
-	 * @param array $context Additional context data
-	 * @return void
-	 */
-	public function error($message, $context = [])
-	{
-		$this->writeInstance('error', $message, $context);
-	}
+	// /**
+	//  * Instance: Log error to custom file
+	//  *
+	//  * Same as static error() but writes to custom file set via to().
+	//  *
+	//  * @param string $message Error message
+	//  * @param array $context Additional context data
+	//  * @return void
+	//  */
+	// public function error($message, $context = [])
+	// {
+	// 	$this->writeInstance('error', $message, $context);
+	// }
 
-	/**
-	 * Instance: Log warning to custom file
-	 *
-	 * Same as static warning() but writes to custom file set via to().
-	 *
-	 * @param string $message Warning message
-	 * @param array $context Additional context data
-	 * @return void
-	 */
-	public function warning($message, $context = [])
-	{
-		$this->writeInstance('warning', $message, $context);
-	}
+	// /**
+	//  * Instance: Log warning to custom file
+	//  *
+	//  * Same as static warning() but writes to custom file set via to().
+	//  *
+	//  * @param string $message Warning message
+	//  * @param array $context Additional context data
+	//  * @return void
+	//  */
+	// public function warning($message, $context = [])
+	// {
+	// 	$this->writeInstance('warning', $message, $context);
+	// }
 
-	/**
-	 * Instance: Log info to custom file
-	 *
-	 * Same as static info() but writes to custom file set via to().
-	 *
-	 * @param string $message Info message
-	 * @param array $context Additional context data
-	 * @return void
-	 */
-	public function info($message, $context = [])
-	{
-		$this->writeInstance('info', $message, $context);
-	}
+	// /**
+	//  * Instance: Log info to custom file
+	//  *
+	//  * Same as static info() but writes to custom file set via to().
+	//  *
+	//  * @param string $message Info message
+	//  * @param array $context Additional context data
+	//  * @return void
+	//  */
+	// public function info($message, $context = [])
+	// {
+	// 	$this->writeInstance('info', $message, $context);
+	// }
 
-	/**
-	 * Instance: Log debug to custom file
-	 *
-	 * Same as static debug() but writes to custom file set via to().
-	 *
-	 * @param string $message Debug message
-	 * @param array $context Additional context data
-	 * @return void
-	 */
-	public function debug($message, $context = [])
-	{
-		$this->writeInstance('debug', $message, $context);
-	}
+	// /**
+	//  * Instance: Log debug to custom file
+	//  *
+	//  * Same as static debug() but writes to custom file set via to().
+	//  *
+	//  * @param string $message Debug message
+	//  * @param array $context Additional context data
+	//  * @return void
+	//  */
+	// public function debug($message, $context = [])
+	// {
+	// 	$this->writeInstance('debug', $message, $context);
+	// }
 
 	// ===========================================================================
 	// INTERNAL HELPERS
@@ -501,12 +501,11 @@ class Log {
 
 		// Append context if provided
 		if (!empty($context)) {
+			
 			$contextJson = json_encode($context, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-			if ($contextJson !== false) {
-				$entry .= " {$contextJson}";
-			} else {
-				$entry .= " (context encoding failed)";
-			}
+			
+			if ($contextJson !== false) $entry .= " {$contextJson}";
+			else $entry .= " (context encoding failed)";
 		}
 
 		return $entry;
