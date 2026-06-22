@@ -366,7 +366,7 @@ class Mail {
 		$this->addRecipient($address, $name, 'bcc');
 		return $this;
 	}
-
+ 
 	/**
 	 * Set reply-to address
 	 *
@@ -497,9 +497,7 @@ class Mail {
 	public function template($template, $data = [])
 	{
 		// Render view template
-		ob_start();
-		View::render($template, $data);
-		$rendered = ob_get_clean();
+		$rendered = View::get($template, $data);
 
 		// Set as body and auto-detect HTML
 		$this->body = $rendered;
@@ -637,7 +635,8 @@ class Mail {
 				default:
 					return $this->sendViaMail();
 			}
-		} catch (\Exception $e) {
+		} catch (\Throwable $e) {
+
 			self::$lastError = $e->getMessage();
 			return false;
 		}
@@ -800,6 +799,7 @@ class Mail {
 		$sent = $mailer->send(
 			$this->from,
 			$this->to,
+			$this->replyTo,
 			$this->cc,
 			$this->bcc,
 			$this->subject,
@@ -831,6 +831,7 @@ class Mail {
 		$sent = $mailer->send(
 			$this->from,
 			$this->to,
+			$this->replyTo,
 			$this->cc,
 			$this->bcc,
 			$this->subject,
@@ -861,12 +862,13 @@ class Mail {
 		$sent = $mailer->send(
 			$this->from,
 			$this->to,
+			$this->replyTo,
 			$this->cc,
 			$this->bcc,
 			$this->subject,
 			$this->body,
 			$this->isHtml,
-			$this->attachments
+			$this->attachments 
 		);
 
 		if (!$sent) {
