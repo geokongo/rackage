@@ -10,7 +10,7 @@
  * Static Design:
  *   All methods are static - no instance creation required.
  *   Variables are stored in static properties and extracted into view scope.
- *
+ * 
  * Template Engine:
  *   When enabled (settings.php → template_engine: true), views are compiled:
  *   - Directives (@if, @foreach, @extends, etc.) are processed
@@ -59,6 +59,7 @@ use Rackage\Request;
 use Rackage\Registry;
 use Rackage\Templates\Template;
 use Rackage\Templates\TemplateStream;
+use Rackage\Exceptions\HelperException;
 use Rackage\Templates\TemplateException;
 
 class View {
@@ -259,33 +260,20 @@ class View {
     private static function renderView($fileName, array $data, $status, $parse)
     {
         // Set HTTP status code
-        if ($status !== 200) {
-            http_response_code($status);
-        }
+        if ($status !== 200) http_response_code($status);
 
         // Merge passed data with existing variables
         $allVariables = array_merge(self::$variables, $data);
 
         // Extract variables into local scope
-        // foreach ($allVariables as $key => $value) {
-            
-        //     $$key = $value;
-        // }
-
         extract($allVariables);
 
         // Determine whether to parse template
         $shouldParse = $parse && (Registry::settings()['template_engine'] !== false);
 
         // Get view contents (compiled or raw)
-        if ($shouldParse) {
-
-            $contents = self::getHeaderContent() . self::getContents($fileName, false);
-        } 
-        else {
-
-            $contents = self::getHeaderContent() . file_get_contents(Path::view($fileName));
-        }
+        if ($shouldParse) $contents = self::getHeaderContent() . self::getContents($fileName, false);
+        else $contents = self::getHeaderContent() . file_get_contents(Path::view($fileName));
 
         // Check if Router decided this page should be cached
         $shouldCache = self::shouldCache();
@@ -317,9 +305,7 @@ class View {
 
             $tmpDir = Registry::settings()['root'] . '/vault/tmp/';
 
-            if (!is_dir($tmpDir)) {
-                mkdir($tmpDir, 0755, true);
-            }
+            if (!is_dir($tmpDir)) mkdir($tmpDir, 0755, true);
 
             $filePath = $tmpDir . uniqid('view_', true) . '.php';
             file_put_contents($filePath, $contents);
@@ -330,11 +316,37 @@ class View {
         }
         else {
 
-            TemplateStream::setContent($contents);
+            // Encapsulate in try...catch block so we can write file on error
+            try {
+                
+                TemplateStream::setContent($contents);
 
-            include 'rachie-template://render';
+                include 'rachie-template://render';
 
-            TemplateStream::clearContent();
+                TemplateStream::clearContent();
+            }             
+            catch (\Throwable $exception) { 
+                
+                // Write error template for debugging
+                $root   = Registry::settings()['root'];
+                $tmpDir = $root . '/vault/tmp/';
+
+                if(!is_dir($tmpDir)) mkdir($tmpDir, 0755, true);
+                $file   = date("Ymd_His") . "_" . preg_replace('/[^a-zA-Z0-9\_]+/', '_', $fileName);
+                $file   = trim($file, '_') . ".php";
+                $path   = $root . '/vault/tmp/' . $file;
+                
+                // Write the contents of the template file to disc for debugging
+                file_put_contents($path, $contents); 
+
+                $line       = $exception->getLine();
+                $message    = $exception->getMessage();
+                $file       = substr($path, strpos($root, $path));
+
+                // Compose error message for both display and logging
+                $message    = sprintf("%s in %s on line (%s)", $message, $file, $line);
+                throw new TemplateException($message);
+            }
         }
 
         // Handle buffered output
@@ -352,7 +364,6 @@ class View {
         // Clear variables after rendering
         self::$variables = array();
     }
-
 
     /**
      * Render template to string without sending to browser
@@ -385,7 +396,8 @@ class View {
 
         if ($shouldParse) {
             $contents = self::getHeaderContent() . self::getContents($fileName, false);
-        } else {
+        } 
+        else {
             $contents = self::getHeaderContent() . file_get_contents(Path::view($fileName));
         }
 
@@ -484,8 +496,65 @@ class View {
     public static function json(array $data = null, $status = 200)
     {
         http_response_code($status);
+
         header('Content-Type: application/json');
+
         echo json_encode($data);
+    }
+
+    /**
+     * Outputs a .csv file
+     * 
+     * Takes an array of values and prints out a downloadable .csv file to the 
+     * browser for direction download. Assumes the first row is the header;
+     * 
+     * @param array $output The list of items to output as csv file
+     * @param string $filename The name of the file, defaults to export.csv
+     * @return void
+     */
+    public static function csv($rows, $filename = "export.csv")
+    {
+        if(ob_get_level()) ob_end_clean();
+        $stream     = fopen('php://output', 'w');
+
+        try {            
+
+            header('Content-Type: text/csv; charset=utf8');
+            header('Content-Disposition: attachment; filename="'. $filename. '"');
+            header('Pragma: no-cache');
+            header('Expires: 0');
+            
+            foreach($rows as $row) fputcsv($stream, $row);
+
+            fclose($stream);
+
+        } 
+        catch (\Throwable $exception) {
+
+            // Remove the preset headers, close output stream and throw template error
+            header_remove();            
+            if(is_resource($stream)) fclose($stream);
+
+            throw new HelperException($exception->getMessage());
+        }
+    }
+
+    /**
+     * Render XML content
+     * 
+     * Takes preformated XML text, sets XML headers and renders to the browser in raw format.
+     * Greate for generating .xml sitemaps or returning any kind of XML data
+     * 
+     * @param string $xml text
+     * @return void
+     */
+    public static function xml($xml = null)
+    {
+        header('Content-Type: application/xml; charset=utf-8');
+        
+        echo '<?xml version="1.0" encoding="UTF-8"?>';
+
+        echo $xml;
     }
 
     /**
