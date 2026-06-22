@@ -154,7 +154,7 @@ class Uploader {
     public function setUploadPath($dirName)
     {
         if ($dirName === null) {
-            $this->uploadPath = $this->sanitizePath(Registry::getConfig()['upload_path']);
+            $this->uploadPath = $this->sanitizePath(Registry::settings()['upload_path']);
         } else {
             $this->uploadPath = $this->sanitizePath($dirName);
         }

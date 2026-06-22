@@ -18,7 +18,7 @@
  *   - Server must allow outbound connections on port 25 (often blocked by ISPs)
  *   - Domain must have proper SPF/DKIM records for deliverability
  *
- * Advantages:
+ * Advantages: 
  *   - Zero external dependencies (built into PHP)
  *   - Fast (minimal overhead, direct system call)
  *   - Simple (no authentication, no connection management)
@@ -168,7 +168,7 @@ class PHPMailer {
 	 * @param array $attachments File attachments
 	 * @return bool True on success, false on failure
 	 */
-	public function send($from, $to, $cc, $bcc, $subject, $body, $isHtml, $attachments)
+	public function send($from, $to, $replyTo, $cc, $bcc, $subject, $body, $isHtml, $attachments)
 	{
 		// Clear previous error
 		$this->lastError = null;

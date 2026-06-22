@@ -17,7 +17,7 @@
  *   - Do other work while query runs
  *   - Cleaner code than manual mysqli_poll handling
  *
- * Limitations:
+ * Limitations: 
  *   - Single connection = one async query at a time
  *   - Must call await() before starting another async query
  *   - Connection pool needed for true parallelism (future)

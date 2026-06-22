@@ -207,7 +207,7 @@ class SendMailer {
 	 * @param array $attachments File attachments
 	 * @return bool True on success, false on failure
 	 */
-	public function send($from, $to, $cc, $bcc, $subject, $body, $isHtml, $attachments)
+	public function send($from, $to, $replyTo, $cc, $bcc, $subject, $body, $isHtml, $attachments)
 	{
 		// Clear previous error
 		$this->lastError = null;
@@ -224,7 +224,7 @@ class SendMailer {
 		if (!$this->validateRecipients($bcc, 'bcc')) return false;
 
 		// Build complete email message (RFC 5322 format)
-		$message = $this->buildMessage($from, $to, $cc, $bcc, $subject, $body, $isHtml, $attachments);
+		$message = $this->buildMessage($from, $to, $replyTo, $cc, $bcc, $subject, $body, $isHtml, $attachments);
 
 		// Open pipe to sendmail binary ('w' = write mode)
 		$handle = @popen($this->sendmailPath, 'w');
@@ -324,7 +324,7 @@ class SendMailer {
 	 * @param array $attachments Attachments
 	 * @return string Complete email message
 	 */
-	private function buildMessage($from, $to, $cc, $bcc, $subject, $body, $isHtml, $attachments)
+	private function buildMessage($from, $to, $replyTo, $cc, $bcc, $subject, $body, $isHtml, $attachments)
 	{
 		$message = [];
 
