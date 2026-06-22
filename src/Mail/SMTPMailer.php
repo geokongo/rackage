@@ -226,7 +226,7 @@ class SMTPMailer {
 	 * @param array $attachments File attachments
 	 * @return bool True on success, false on failure
 	 */
-	public function send($from, $to, $cc, $bcc, $subject, $body, $isHtml, $attachments)
+	public function send($from, $to, $replyTo, $cc, $bcc, $subject, $body, $isHtml, $attachments)
 	{
 		// Clear previous error and debug log
 		$this->lastError = null;
@@ -235,9 +235,17 @@ class SMTPMailer {
 		try {
 			// Validate from address
 			if (!$this->validateEmail($from['address'])) {
+				
 				$this->lastError = 'Invalid from address: ' . $from['address'];
 				return false;
 			}
+			
+			// Validate replyTo address
+			if($replyTo && !$this->validateEmail($replyTo['address'])) {
+				 	
+				$this->lastError = 'Invalid replyTo address: ' . $replyTo['address'];
+				return false;
+			}	 		
 
 			// Validate all recipient addresses
 			if (!$this->validateRecipients($to, 'to')) return false;
@@ -245,12 +253,11 @@ class SMTPMailer {
 			if (!$this->validateRecipients($bcc, 'bcc')) return false;
 
 			// Step 1: Connect to SMTP server
-			if (!$this->connect()) {
-				return false;
-			}
+			if (!$this->connect()) return false;
 
 			// Step 2: Authenticate (if enabled)
 			if (!empty($this->config['auth']) && $this->config['auth'] === true) {
+				
 				if (!$this->authenticate()) {
 					$this->disconnect();
 					return false;
@@ -259,6 +266,7 @@ class SMTPMailer {
 
 			// Step 3: Send MAIL FROM command (envelope sender)
 			if (!$this->sendCommand("MAIL FROM:<{$from['address']}>", 250)) {
+				
 				$this->disconnect();
 				return false;
 			}
@@ -272,6 +280,7 @@ class SMTPMailer {
 			);
 
 			foreach ($allRecipients as $recipient) {
+				
 				if (!$this->sendCommand("RCPT TO:<{$recipient}>", 250)) {
 					$this->disconnect();
 					return false;
@@ -285,7 +294,7 @@ class SMTPMailer {
 			}
 
 			// Step 6: Build and send complete email message
-			$message = $this->buildMessage($from, $to, $cc, $bcc, $subject, $body, $isHtml, $attachments);
+			$message = $this->buildMessage($from, $to, $replyTo, $cc, $bcc, $subject, $body, $isHtml, $attachments);
 
 			// Send message and end with CRLF.CRLF (period on line by itself)
 			fwrite($this->socket, $message . $this->lineEnding);
@@ -302,7 +311,9 @@ class SMTPMailer {
 
 			return true;
 
-		} catch (\Exception $e) {
+		} 
+		catch (\Exception $e) {
+			
 			$this->lastError = 'SMTP Exception: ' . $e->getMessage();
 			$this->disconnect();
 			return false;
@@ -658,7 +669,7 @@ class SMTPMailer {
 	 * @param array $attachments Attachments
 	 * @return string Complete email message
 	 */
-	private function buildMessage($from, $to, $cc, $bcc, $subject, $body, $isHtml, $attachments)
+	private function buildMessage($from, $to, $replyTo, $cc, $bcc, $subject, $body, $isHtml, $attachments)
 	{
 		$message = [];
 
@@ -676,7 +687,10 @@ class SMTPMailer {
 
 		// Add standard headers
 		$message[] = 'Subject: ' . $this->sanitizeHeader($subject);
-		$message[] = 'Reply-To: ' . $this->formatAddress($from['address'], $from['name']);
+
+		if($replyTo) $message[] = 'Reply-To: ' . $this->formatAddress($replyTo['address'], $replyTo['name']);
+		else $message[] = 'Reply-To: ' . $this->formatAddress($from['address'], $from['name']);
+			
 		$message[] = 'X-Mailer: Rachie Framework';
 		$message[] = 'MIME-Version: 1.0';
 		$message[] = 'Date: ' . date('r'); // RFC 2822 date format
