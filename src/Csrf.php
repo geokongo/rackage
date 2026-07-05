@@ -217,7 +217,7 @@ class Csrf
     public static function valid($token)
     {
         $sessionToken = Session::get(self::$tokenKey);
-        return $sessionToken && hash_equals($sessionToken, $token);
+        return $sessionToken && hash_equals($sessionToken, $token ?? '');
     }
 
     /**
