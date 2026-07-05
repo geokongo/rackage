@@ -103,10 +103,7 @@ class Router {
 	{
 		try {
 			// Check cache first - serve and exit if hit
-			if ($this->checkCache())
-			{
-				return;
-			}
+			if ($this->checkCache()) return;
 
 			// Match route and resolve routing
 			$this->matchRoute();
@@ -117,9 +114,8 @@ class Router {
 			$this->validateController();
 			$this->dispatchController();
 
-		} catch (RouteException $e) {
-			$e->errorShow();
-		}
+		} 
+		catch (RouteException $exception) { throw $exception; }
 	}
 
 	// ===========================================================================
@@ -233,14 +229,22 @@ class Router {
 		// Check if URL matches a defined route
 		if ($this->routeParser->matchRoute()) {
 			// Route matched - let RouteParser set controller, method, params from route
-			$this->routeParser->setController()
-			                  ->setMethod()
-			                  ->setParameters();
-		} else {
-			// No route matched - extract controller, method, params from URL
-			$this->routeParser->setControllerUrl()
-			                  ->setMethodUrl()
-			                  ->setParameters();
+			$this->routeParser->setController()->setMethod()->setParameters();
+		}
+		else {
+
+			// Consider direct URL mapping if routing mode is not strict
+			$strictRounting 	= $this->settings['routing']['strict'] ?? false;
+			
+			if($strictRounting) {
+				// Reject if no routes match and strict mode enabled
+				$components 	= join( '/', array_slice($this->routeParser->urlComponents, 0, 2));
+				throw new RouteException( "Undefined route to '{$components}'" );				
+			}
+			else {
+				// No route matched - extract controller, method, params from URL
+				$this->routeParser->setControllerUrl()->setMethodUrl()->setParameters();			
+			}			
 		}
 	}
 
@@ -266,7 +270,8 @@ class Router {
 		if ($controller !== null) {
 			// Use controller from matched route or URL
 			$this->controller = $controller;
-		} else {
+		} 
+		else {
 			// No controller in URL - use default
 			$this->controller = $this->settings['default']['controller'];
 		}
@@ -290,7 +295,8 @@ class Router {
 		if ($method !== null) {
 			// Use action from matched route or URL
 			$this->action = $method;
-		} else {
+		} 
+		else {
 			// No method in URL - use default action
 			$this->action = $this->settings['default']['action'];
 		}
@@ -328,8 +334,8 @@ class Router {
 			    Registry::settings()['routing']['catch_all'] === true) {
 
 				// Use catch-all controller instead of throwing error
-				$this->controller = Registry::settings()['routing']['controller'];
-				$this->action = Registry::settings()['routing']['method'];
+				$this->controller 	= Registry::settings()['routing']['controller'];
+				$this->action 		= Registry::settings()['routing']['method'];
 
 				// Pass full URL as first parameter to catch-all method
 				$this->parameters = array(Registry::url());
@@ -341,7 +347,8 @@ class Router {
 						"Catch-all controller '{$controllerClass}' is not defined"
 					);
 				}
-			} else {
+			} 
+			else {
 				// Catch-all disabled - throw original error
 				throw new RouteException(
 					"Controller class '{$controllerClass}' is not defined"
@@ -419,12 +426,10 @@ class Router {
 		if ($dispatch->enable_filters === true) {
 			// Execute with filters
 			$this->dispatchWithFilters($dispatch, $reflection, $method);
-		} else {
+		} 
+		else {
 			// Execute without filters
-			call_user_func_array(
-				array($dispatch, $this->action),
-				$this->parameters
-			);
+			call_user_func_array( array($dispatch, $this->action), $this->parameters );
 		}
 	}
 
@@ -486,9 +491,7 @@ class Router {
 				$this->executeFilters($filters['after'], $dispatch, 'after');
 			}
 
-		} catch (RouteException $e) {
-			$e->errorShow();
-		}
+		} catch (RouteException $exception) { throw $exception; }
 	}
 
 	/**
