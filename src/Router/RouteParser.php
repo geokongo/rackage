@@ -108,7 +108,7 @@ class RouteParser {
 	 * Example: "admin/posts/edit/5" → ["admin", "posts", "edit", "5"]
 	 * @var array
 	 */
-	private $urlComponents = [];
+	public $urlComponents = [];
 
 	/**
 	 * Defined routes from routes.php
@@ -187,9 +187,7 @@ class RouteParser {
 	public function matchRoute()
 	{
 		// URL must have at least one segment
-		if (empty($this->urlComponents)) {
-			return false;
-		}
+		if (empty($this->urlComponents)) { return false; }
 
 		$controllerSegment = $this->urlComponents[0];
 
