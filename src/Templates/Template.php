@@ -124,10 +124,8 @@ class Template {
 			// Return the compiled contents
 			return $compiled;
 
-		} catch (TemplateException $e) {
-			// Display the error
-			$e->errorShow();
-		}
+		} 
+		catch (TemplateException $exception) { throw $exception; }
 	}
 
 	/**
