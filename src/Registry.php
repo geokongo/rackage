@@ -312,7 +312,7 @@ class Registry {
      * 
      * @return array Mail configuration
      */
-    public static function mail()
+    public static function mailConfig()
     {
         return static::$mail;
     }
