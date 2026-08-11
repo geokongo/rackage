@@ -1,5 +1,7 @@
 <?php namespace Rackage;
 
+use Rackage\Registry;
+
 /**
  * Security Helper
  *
@@ -417,23 +419,51 @@ class Security {
      * @return void
      */
     public static function headers()
-    {
-        // Prevent clickjacking
-        header('X-Frame-Options: DENY');
-
+    {    
+        // Pull specific security configuration from registry
+        $security   = Registry::securityConfig();
+    
         // Prevent MIME type sniffing
         header('X-Content-Type-Options: nosniff');
 
-        // Enable XSS filter in browsers
-        header('X-XSS-Protection: 1; mode=block');
-
         // Referrer policy
-        header('Referrer-Policy: strict-origin-when-cross-origin');
+        $referrer   = $security['referrer_policy'] ?? 'strict-origin-when-cross-origin';
+        header("Referrer-Policy: $referrer");
+
+        // Framing Policy 
+        $framing    = $policy['framing_policy'] ?? 'sameorigin';
+        $ancestors  = null;
+
+        // Prevent clickjacking
+        if ($framing === 'deny') {
+
+            header("X-Frame-Options: DENY");
+            $ancestors = "'none'";
+        } 
+        else if ($framing === 'sameorigin') {
+
+            header("X-Frame-Options: SAMEORIGIN");
+            $ancestors = "'self'";
+        } 
+        else {
+            // "allow" - removes X-Frame-Options entirely so it doesn't block framing
+            // frame-ancestors * allows all domains
+            $ancestors = "*";
+        }
 
         // Force HTTPS (only if already on HTTPS)
         if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') {
             header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
         }
+
+        // Update framing policy
+        $security['Content-Security-Policy']['directives']['frame-ancestors'] = $ancestors;
+
+        static::csp($security['Content-Security-Policy']);
+        static::cors(
+            $security['Cross-Origin-Resource-Sharing']['origins'], 
+            $security['Cross-Origin-Resource-Sharing']['options']
+        );
     }
 
     /**
@@ -474,32 +504,34 @@ class Security {
      */
     public static function csp($policy = [])
     {
+        if(!$policy['enabled']) return; // Ignore if policy has been turned off
+
         // Default secure policy
         $defaults = [
-            'default-src' => "'self'",
-            'script-src' => "'self'",
-            'style-src' => "'self' 'unsafe-inline'",
-            'img-src' => "'self' data: https:",
-            'font-src' => "'self'",
-            'connect-src' => "'self'",
-            'frame-ancestors' => "'none'",
-            'base-uri' => "'self'",
-            'form-action' => "'self'"
+            'default-src'       => "'self'",
+            'script-src'        => "'self'",
+            'style-src'         => "'self' 'unsafe-inline'",
+            'img-src'           => "'self' data: https:",
+            'font-src'          => "'self'",
+            'connect-src'       => "'self'",
+            // 'frame-ancestors'   => "'none'",
+            'base-uri'          => "'self'",
+            'form-action'       => "'self'"
         ];
 
         // Merge with custom policy
-        $policy = array_merge($defaults, $policy);
+        $directives = array_merge($defaults, $policy['directives']);
 
         // Build CSP header string
         $cspParts = [];
-        foreach ($policy as $directive => $value) {
+        foreach ($directives as $directive => $value) {
             $cspParts[] = $directive . ' ' . $value;
         }
-
         $cspHeader = implode('; ', $cspParts);
 
-        // Set header
-        header("Content-Security-Policy: $cspHeader");
+        // Send headers based on Mode (Block vs Report-Only)
+        if ($policy['report_only'] ?? false) header("Content-Security-Policy-Report-Only: $cspHeader");
+        else header("Content-Security-Policy: $cspHeader");
     }
 
     /**
@@ -541,25 +573,29 @@ class Security {
     public static function cors($allowedOrigins = [], $options = [])
     {
         // Get request origin
-        $origin = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '';
+        $origin = $_SERVER['HTTP_ORIGIN']?? '';
+        if(!$origin) return;
 
         // Default options
         $defaults = [
-            'methods' => 'GET, POST, PUT, DELETE, OPTIONS',
-            'headers' => 'Content-Type, Authorization, X-CSRF-TOKEN, X-Requested-With',
-            'credentials' => true,
-            'max_age' => 86400
+            'methods'       => 'GET, POST, PUT, DELETE, OPTIONS',
+            'headers'       => 'Content-Type, Authorization, X-CSRF-TOKEN, X-Requested-With',
+            'credentials'   => true,
+            'max_age'       => 86400
         ];
 
         $options = array_merge($defaults, $options);
 
         // Check if origin is allowed
         if (in_array($origin, $allowedOrigins) || in_array('*', $allowedOrigins)) {
+
             // Set allowed origin (use specific origin, not * if credentials are true)
             if ($options['credentials'] && $origin) {
+
                 header("Access-Control-Allow-Origin: $origin");
                 header('Access-Control-Allow-Credentials: true');
-            } else {
+            } 
+            else {
                 header('Access-Control-Allow-Origin: ' . (in_array('*', $allowedOrigins) ? '*' : $origin));
             }
 
@@ -574,9 +610,11 @@ class Security {
 
             // Handle preflight OPTIONS request
             if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+                
                 http_response_code(200);
-                exit;
+                exit(); // No need to wake up controller for pre flight
             }
         }
+        else exit(); // Seems this origin is not allowed
     }
 }
