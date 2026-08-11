@@ -29,10 +29,11 @@
  * @version 2.0.0
  */
 
-use Rackage\Registry;
 use Rackage\Cache;
 use Rackage\Request;
 use ReflectionClass;
+use Rackage\Registry;
+use Rackage\Security;
 
 class Router {
 
@@ -102,6 +103,10 @@ class Router {
 	public function dispatch()
 	{
 		try {
+			
+			// Set security headers and pre-flight response
+			Security::headers();
+
 			// Check cache first - serve and exit if hit
 			if ($this->checkCache()) return;
 
@@ -138,29 +143,20 @@ class Router {
 	 */
 	private function checkCache()
 	{
-		$cacheConfig = Registry::cache();
+		$cacheConfig = Registry::cacheConfig();
 
 		// Cache disabled?
-		if (!$cacheConfig['enabled'])
-		{
-			return false;
-		}
+		if (!$cacheConfig['enabled']) return false;
 
 		// Check HTTP method
 		$requestMethod = $_SERVER['REQUEST_METHOD'];
-		if (!in_array($requestMethod, $cacheConfig['methods']))
-		{
-			return false;
-		}
+		if (!in_array($requestMethod, $cacheConfig['methods'])) return false;
 
 		// Check URL exclusions
 		$requestUri = Request::fullUri();
-		foreach ($cacheConfig['exclude_urls'] as $pattern)
-		{
-			if ($this->urlMatches($requestUri, $pattern))
-			{
-				return false;
-			}
+		foreach ($cacheConfig['exclude_urls'] as $pattern) {
+
+			if ($this->urlMatches($requestUri, $pattern)) return false;
 		}
 
 		// Try to get from cache
@@ -191,10 +187,7 @@ class Router {
 	private function urlMatches($url, $pattern)
 	{
 		// Exact match
-		if ($url === $pattern)
-		{
-			return true;
-		}
+		if ($url === $pattern) return true;
 
 		// Wildcard match: '/admin/*' matches '/admin/anything'
 		if (strpos($pattern, '*') !== false)
@@ -330,15 +323,14 @@ class Router {
 		if (!class_exists($controllerClass)) {
 
 			// Check if catch-all routing is enabled
-			if (isset(Registry::settings()['routing']['catch_all']) &&
-			    Registry::settings()['routing']['catch_all'] === true) {
+			if (Registry::settings()['catch_all']['enabled'] ?? false) {
 
 				// Use catch-all controller instead of throwing error
-				$this->controller 	= Registry::settings()['routing']['controller'];
-				$this->action 		= Registry::settings()['routing']['method'];
+				$this->controller 	= Registry::settings()['catch_all']['controller'];
+				$this->action 		= Registry::settings()['catch_all']['method'];
 
 				// Pass full URL as first parameter to catch-all method
-				$this->parameters = array(Registry::url());
+				$this->parameters = [Registry::url()];
 
 				// Rebuild controller class name and validate catch-all controller exists
 				$controllerClass = 'Controllers\\' . ucwords($this->controller) . 'Controller';
