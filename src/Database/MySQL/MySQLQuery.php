@@ -2740,7 +2740,8 @@ class MySQLQuery
 
 		if ($hasWhere) {
 			return $this->connector->affectedRows();
-		} else {
+		} 
+		else {
 			// For inserts, return last insert ID (for bulk, this is the first ID)
 			return $this->connector->lastInsertId();
 		}
