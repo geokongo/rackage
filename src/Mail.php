@@ -209,11 +209,7 @@ class Mail {
 		$instance 	= isset($this) ? $this : new self();
 
 		if($config) self::$config 	= $config;
-
-		if (empty(self::$config)) {
-
-			self::$config = Registry::mailConfig();
-		}
+		if (empty(self::$config)) self::$config = Registry::mailConfig();
 
 		return $instance;
 	}
