@@ -158,6 +158,13 @@ class Mail {
 	private $from = [];
 
 	/**
+	 * Custom headers to add to the email
+	 * Format: 'Message-ID', '<unique-id@yourdomain.com>'
+	 * @var array
+	 */
+	private $headers = [];
+
+	/**
 	 * Reply-To email address and name
 	 * Format: ['address' => 'reply@example.com', 'name' => 'Reply Name']
 	 * @var array
@@ -197,19 +204,14 @@ class Mail {
 	 *
 	 * @return void
 	 */
-	private static function initConfig()
+	public static function config($config = null)
 	{
-		if (empty(self::$config)) {
-			self::$config = Registry::mail();
+		$instance 	= isset($this) ? $this : new self();
 
-			// Set defaults if not configured
-			if (empty(self::$config)) {
-				self::$config = [
-					'driver' => 'mail',
-					'from' => ['address' => 'noreply@localhost', 'name' => 'Rachie App'],
-				];
-			}
-		}
+		if($config) self::$config 	= $config;
+		if (empty(self::$config)) self::$config = Registry::mailConfig();
+
+		return $instance;
 	}
 
 	// ===========================================================================
@@ -245,11 +247,9 @@ class Mail {
 	 */
 	public static function to($address, $name = '')
 	{
-		self::initConfig();
+		$instance 	= isset($this) ? $this : self::config();
 
-		$instance = new self();
-
-		// Set default from address from config
+		// Set default 'from' address from config
 		if (!empty(self::$config['from_email'])) {
 			$instance->from = [
 				'address' => self::$config['from_email'],
@@ -281,12 +281,36 @@ class Mail {
 	 */
 	public static function from($address, $name = '')
 	{
-		self::initConfig();
+		$instance 	= isset($this) ? $this : self::config();
 
-		$instance = new self();
 		$instance->from = ['address' => $address, 'name' => $name];
 
 		return $instance;
+	}
+
+	/**
+	 * Add custom headers to the email body for tracking purposes
+	 * 
+	 * @param string $name The name of the header, e.g. Message-ID
+	 * @param string $value The value of the header, e.g. <123344545@domain.com>
+	 */
+	public function header($name, $value = true)
+	{
+		$this->headers[$name]	= $value;
+
+		return $this;
+	}
+
+	/**
+	 * Add a custom message ID to the body of the email
+	 * 
+	 * @param string $value
+	 */
+	public function messageId($value)
+	{
+		if(!$value) return $this;
+
+		$this->headers['Message-ID'] = $value;
 	}
 
 	/**
@@ -337,6 +361,7 @@ class Mail {
 	public function cc($address, $name = '')
 	{
 		$this->addRecipient($address, $name, 'cc');
+
 		return $this;
 	}
 
@@ -364,6 +389,7 @@ class Mail {
 	public function bcc($address, $name = '')
 	{
 		$this->addRecipient($address, $name, 'bcc');
+
 		return $this;
 	}
  
@@ -387,6 +413,7 @@ class Mail {
 	public function replyTo($address, $name = '')
 	{
 		$this->replyTo = ['address' => $address, 'name' => $name];
+
 		return $this;
 	}
 
@@ -417,6 +444,7 @@ class Mail {
 	public function subject($subject)
 	{
 		$this->subject = $subject;
+
 		return $this;
 	}
 
@@ -862,6 +890,7 @@ class Mail {
 		$sent = $mailer->send(
 			$this->from,
 			$this->to,
+			$this->headers,
 			$this->replyTo,
 			$this->cc,
 			$this->bcc,

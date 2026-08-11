@@ -287,7 +287,7 @@ class View {
         //
         // Two rendering modes based on environment:
         //
-        // DEV MODE (file-based):
+        // DEBUG MODE (file-based):
         //   - Writes compiled template to vault/tmp/
         //   - Better error paths in stack traces (real file paths)
         //   - On error, temp file preserved for inspection
@@ -301,52 +301,36 @@ class View {
         //
         // =======================================================================
 
-        if (DEV) {
+        // Encapsulate in try...catch block so we can write file on error
+        try {
+            
+            TemplateStream::setContent($contents);
 
-            $tmpDir = Registry::settings()['root'] . '/vault/tmp/';
+            include 'rachie-template://render';
 
-            if (!is_dir($tmpDir)) mkdir($tmpDir, 0755, true);
+            TemplateStream::clearContent();
+        }             
+        catch (\Throwable $exception) { 
+            
+            // Write error template for debugging
+            $root   = Registry::settings()['root'];
+            $tmpDir = $root . '/vault/tmp/';
 
-            $filePath = $tmpDir . uniqid('view_', true) . '.php';
-            file_put_contents($filePath, $contents);
+            if(!is_dir($tmpDir)) mkdir($tmpDir, 0755, true);
+            $file   = date("Ymd_His") . "_" . preg_replace('/[^a-zA-Z0-9\_]+/', '_', $fileName);
+            $file   = trim($file, '_') . ".php";
+            $path   = $root . '/vault/tmp/' . $file;
+            
+            // Write the contents of the template file to disc for debugging
+            file_put_contents($path, $contents); 
 
-            include $filePath;
+            $line       = $exception->getLine();
+            $message    = $exception->getMessage();
+            $file       = substr($path, strpos($root, $path));
 
-            unlink($filePath);
-        }
-        else {
-
-            // Encapsulate in try...catch block so we can write file on error
-            try {
-                
-                TemplateStream::setContent($contents);
-
-                include 'rachie-template://render';
-
-                TemplateStream::clearContent();
-            }             
-            catch (\Throwable $exception) { 
-                
-                // Write error template for debugging
-                $root   = Registry::settings()['root'];
-                $tmpDir = $root . '/vault/tmp/';
-
-                if(!is_dir($tmpDir)) mkdir($tmpDir, 0755, true);
-                $file   = date("Ymd_His") . "_" . preg_replace('/[^a-zA-Z0-9\_]+/', '_', $fileName);
-                $file   = trim($file, '_') . ".php";
-                $path   = $root . '/vault/tmp/' . $file;
-                
-                // Write the contents of the template file to disc for debugging
-                file_put_contents($path, $contents); 
-
-                $line       = $exception->getLine();
-                $message    = $exception->getMessage();
-                $file       = substr($path, strpos($root, $path));
-
-                // Compose error message for both display and logging
-                $message    = sprintf("%s in %s on line (%s)", $message, $file, $line);
-                throw new TemplateException($message);
-            }
+            // Compose error message for both display and logging
+            $message    = sprintf("%s in %s on line (%s)", $message, $file, $line);
+            throw new TemplateException($message);
         }
 
         // Handle buffered output
@@ -362,7 +346,7 @@ class View {
         }
 
         // Clear variables after rendering
-        self::$variables = array();
+        self::$variables = [];
     }
 
     /**
@@ -394,37 +378,40 @@ class View {
 
         $shouldParse = Registry::settings()['template_engine'] !== false;
 
-        if ($shouldParse) {
-            $contents = self::getHeaderContent() . self::getContents($fileName, false);
-        } 
-        else {
-            $contents = self::getHeaderContent() . file_get_contents(Path::view($fileName));
-        }
+        if ($shouldParse) $contents = self::getHeaderContent() . self::getContents($fileName, false);
+        else $contents = self::getHeaderContent() . file_get_contents(Path::view($fileName));
 
         ob_start();
 
-        if (DEV) {
-
-            $tmpDir = Registry::settings()['root'] . '/vault/tmp/';
-
-            if (!is_dir($tmpDir)) {
-                mkdir($tmpDir, 0755, true);
-            }
-
-            $filePath = $tmpDir . uniqid('view_', true) . '.php';
-            file_put_contents($filePath, $contents);
-
-            include $filePath;
-
-            unlink($filePath);
-        }
-        else {
+        try {
 
             TemplateStream::setContent($contents);
 
             include 'rachie-template://render';
 
             TemplateStream::clearContent();
+        }
+        catch(\Throwable $exception) {
+
+            // Write error template for debugging
+            $root   = Registry::settings()['root'];
+            $tmpDir = $root . '/vault/tmp/';
+
+            if(!is_dir($tmpDir)) mkdir($tmpDir, 0755, true);
+            $file   = date("Ymd_His") . "_" . preg_replace('/[^a-zA-Z0-9\_]+/', '_', $fileName);
+            $file   = trim($file, '_') . ".php";
+            $path   = $root . '/vault/tmp/' . $file;
+            
+            // Write the contents of the template file to disc for debugging
+            file_put_contents($path, $contents); 
+
+            $line       = $exception->getLine();
+            $message    = $exception->getMessage();
+            $file       = substr($path, strpos($root, $path));
+
+            // Compose error message for both display and logging
+            $message    = sprintf("%s in %s on line (%s)", $message, $file, $line);
+            throw new TemplateException($message);
         }
 
         $output = ob_get_clean();
@@ -632,7 +619,7 @@ class View {
      */
     private static function storeCache($output)
     {
-        $cacheConfig = Registry::cache();
+        $cacheConfig = Registry::cacheConfig();
         $requestUri = Request::fullUri();
         $cacheKey = 'page:' . md5($requestUri);
         $lifetime = $cacheConfig['lifetime'] / 60;

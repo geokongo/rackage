@@ -226,7 +226,7 @@ class SMTPMailer {
 	 * @param array $attachments File attachments
 	 * @return bool True on success, false on failure
 	 */
-	public function send($from, $to, $replyTo, $cc, $bcc, $subject, $body, $isHtml, $attachments)
+	public function send($from, $to, $headers, $replyTo, $cc, $bcc, $subject, $body, $isHtml, $attachments)
 	{
 		// Clear previous error and debug log
 		$this->lastError = null;
@@ -289,12 +289,13 @@ class SMTPMailer {
 
 			// Step 5: Send DATA command to start message transmission
 			if (!$this->sendCommand("DATA", 354)) {
+
 				$this->disconnect();
 				return false;
 			}
 
 			// Step 6: Build and send complete email message
-			$message = $this->buildMessage($from, $to, $replyTo, $cc, $bcc, $subject, $body, $isHtml, $attachments);
+			$message = $this->buildMessage($from, $to, $headers, $replyTo, $cc, $bcc, $subject, $body, $isHtml, $attachments);
 
 			// Send message and end with CRLF.CRLF (period on line by itself)
 			fwrite($this->socket, $message . $this->lineEnding);
@@ -669,7 +670,7 @@ class SMTPMailer {
 	 * @param array $attachments Attachments
 	 * @return string Complete email message
 	 */
-	private function buildMessage($from, $to, $replyTo, $cc, $bcc, $subject, $body, $isHtml, $attachments)
+	private function buildMessage($from, $to, $headers, $replyTo, $cc, $bcc, $subject, $body, $isHtml, $attachments)
 	{
 		$message = [];
 
@@ -690,8 +691,18 @@ class SMTPMailer {
 
 		if($replyTo) $message[] = 'Reply-To: ' . $this->formatAddress($replyTo['address'], $replyTo['name']);
 		else $message[] = 'Reply-To: ' . $this->formatAddress($from['address'], $from['name']);
+
+		// Add custom headers if present
+		if($headers) {
+			foreach($headers as $name => $value){
+
+				$value 	= trim($value);
+				$value 	= trim($value, "<>");
+				$message[] 	= $name . " : <" . $value . ">";
+			}
+		}
 			
-		$message[] = 'X-Mailer: Rachie Framework';
+		// $message[] = 'X-Mailer: Rachie Framework';
 		$message[] = 'MIME-Version: 1.0';
 		$message[] = 'Date: ' . date('r'); // RFC 2822 date format
 
@@ -725,7 +736,8 @@ class SMTPMailer {
 
 			// Final boundary marker (with trailing --)
 			$message[] = '--' . $boundary . '--';
-		} else {
+		} 
+		else {
 			// Simple message (no attachments)
 			$message[] = 'Content-Type: ' . ($isHtml ? 'text/html' : 'text/plain') . '; charset=UTF-8';
 			$message[] = 'Content-Transfer-Encoding: 8bit';

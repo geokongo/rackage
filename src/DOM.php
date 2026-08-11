@@ -53,10 +53,28 @@ class DOM
 	private $xpath;
 
 	/**
-	 * Base URL for resolving relative URLs
+	 * Base URL 'https://domain.com' for resolving relative URLs
 	 * @var string|null
 	 */
 	private $baseUrl;
+
+	/**
+	 * Base Host 'domain.com' for resolving relative URLs
+	 * @var string|null
+	 */
+	private $baseHost;
+
+	/**
+	 * Base Port '8080' for resolving relative URLs
+	 * @var string|null
+	 */
+	private $basePort;
+
+	/**
+	 * Base Scheme 'https' for resolving relative URLs
+	 * @var string|null
+	 */
+	private $baseScheme;
 
 	/**
 	 * Current filtered node list
@@ -72,6 +90,8 @@ class DOM
 	public function __construct()
 	{
 		$this->document = new \DOMDocument('1.0', 'UTF-8');
+		// $this->document->preserveWhiteSpace  = false;
+		// $this->document->strictErrorChecking = false;
 	}
 
 	// =========================================================================
@@ -104,8 +124,9 @@ class DOM
 
 		// Load HTML with UTF-8 encoding
 		// Add meta charset to ensure proper encoding
-		$this->document->loadHTML('<?xml encoding="UTF-8">' . $html, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
-
+		$this->document->loadHTML('<?xml encoding="UTF-8">' . $html, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD | LIBXML_PARSEHUGE | LIBXML_BIGLINES);
+		// $this->document->loadHTML('<?xml encoding="UTF-8">', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD | LIBXML_PARSEHUGE | LIBXML_BIGLINES);
+		
 		// Clear libxml errors
 		libxml_clear_errors();
 
@@ -130,7 +151,14 @@ class DOM
 	 */
 	public function setBaseUrl($url)
 	{
-		$this->baseUrl = rtrim($url, '/');
+		// Parse the base URL
+		$base = parse_url($url, PHP_URL_HOST);
+
+		$this->baseUrl 	= rtrim($url, '/');
+		$this->baseHost	= preg_replace('/^www\./i', '', $base['host'] ?? '');
+		$this->baseScheme 	= $base['scheme'] ?? 'http';
+		$this->basePort 	= isset($base['port']) ? ':' . $base['port'] : '';
+
 		return $this;
 	}
 
@@ -157,6 +185,7 @@ class DOM
 	{
 		$xpath = $this->cssToXpath($selector);
 		$this->nodes = $this->xpath->query($xpath);
+
 		return $this;
 	}
 
@@ -174,6 +203,7 @@ class DOM
 	{
 		$new = clone $this;
 		$new->nodes = ($this->nodes->length > 0) ? [$this->nodes->item(0)] : [];
+
 		return $new;
 	}
 
@@ -189,9 +219,10 @@ class DOM
 	 */
 	public function last()
 	{
-		$new = clone $this;
-		$count = $this->nodes->length;
+		$new 		= clone $this;
+		$count 		= $this->nodes->length;
 		$new->nodes = ($count > 0) ? [$this->nodes->item($count - 1)] : [];
+
 		return $new;
 	}
 
@@ -208,8 +239,9 @@ class DOM
 	 */
 	public function eq($index)
 	{
-		$new = clone $this;
+		$new 		= clone $this;
 		$new->nodes = ($this->nodes->length > $index) ? [$this->nodes->item($index)] : [];
+
 		return $new;
 	}
 
@@ -252,12 +284,10 @@ class DOM
 	 */
 	public function matches($selector)
 	{
-		if (!$this->exists()) {
-			return false;
-		}
+		if (!$this->exists()) { return false; }
 
-		$node = is_array($this->nodes) ? $this->nodes[0] : $this->nodes->item(0);
-		$xpath = $this->cssToXpath($selector);
+		$node 	= is_array($this->nodes) ? $this->nodes[0] : $this->nodes->item(0);
+		$xpath 	= $this->cssToXpath($selector);
 		$result = $this->xpath->query($xpath, $node);
 
 		return $result->length > 0;
@@ -279,19 +309,22 @@ class DOM
 		$new = clone $this;
 
 		if (!$this->exists()) {
+
 			$new->nodes = [];
 			return $new;
 		}
 
-		$node = is_array($this->nodes) ? $this->nodes[0] : $this->nodes->item(0);
+		$node 	= is_array($this->nodes) ? $this->nodes[0] : $this->nodes->item(0);
 		$parent = $node->parentNode;
 
 		while ($parent && $parent instanceof \DOMElement) {
+
 			// Create temp DOM to test if parent matches selector
-			$temp = clone $this;
+			$temp 	= clone $this;
 			$temp->nodes = [$parent];
 
 			if ($temp->matches($selector)) {
+
 				$new->nodes = [$parent];
 				return $new;
 			}
@@ -320,9 +353,10 @@ class DOM
 	public function each(callable $callback)
 	{
 		$results = [];
-		$count = $this->count();
+		$count 	 = $this->count();
 
 		for ($i = 0; $i < $count; $i++) {
+
 			$node = is_array($this->nodes) ? $this->nodes[$i] : $this->nodes->item($i);
 
 			// Create new DOM instance for this node
@@ -352,9 +386,7 @@ class DOM
 	 */
 	public function text()
 	{
-		if (!$this->exists()) {
-			return '';
-		}
+		if (!$this->exists()) { return ''; }
 
 		$node = is_array($this->nodes) ? $this->nodes[0] : $this->nodes->item(0);
 		$text = $node->textContent;
@@ -374,9 +406,7 @@ class DOM
 	 */
 	public function html()
 	{
-		if (!$this->exists()) {
-			return '';
-		}
+		if (!$this->exists()) { return ''; }
 
 		$node = is_array($this->nodes) ? $this->nodes[0] : $this->nodes->item(0);
 		$html = '';
@@ -400,9 +430,7 @@ class DOM
 	 */
 	public function outerHtml()
 	{
-		if (!$this->exists()) {
-			return '';
-		}
+		if (!$this->exists()) { return ''; }
 
 		$node = is_array($this->nodes) ? $this->nodes[0] : $this->nodes->item(0);
 		return $this->document->saveHTML($node);
@@ -422,9 +450,7 @@ class DOM
 	 */
 	public function attr($name)
 	{
-		if (!$this->exists()) {
-			return '';
-		}
+		if (!$this->exists()) { return ''; }
 
 		$node = is_array($this->nodes) ? $this->nodes[0] : $this->nodes->item(0);
 
@@ -433,6 +459,17 @@ class DOM
 		}
 
 		return '';
+	}
+
+	/**
+	 * Run multiple queries at the same time.
+	 * 
+	 * Takes a combined list of xpath queries and execute them at the same time in onesingle DOM 
+	 * traversal. Huge saves on speed if you needed, then you iterate over results in memory.
+	 */
+	public function queries(string $query) 
+	{
+		return $this->xpath->query($query);
 	}
 
 	// =========================================================================
@@ -660,88 +697,142 @@ class DOM
 	public function bodyText()
 	{
 		// Clone document to avoid modifying original
-		$doc = clone $this->document;
-		$xpath = new \DOMXPath($doc);
+		$doc 	= clone $this->document;
+		$xpath 	= new \DOMXPath($doc);
+		$text 	= '';
 
 		// Always remove scripts/styles first (they're never content)
-		$alwaysRemove = $xpath->query('//script | //style | //noscript');
+		$alwaysRemove = $xpath->query('//head | //script | //style | //noscript | //nav | //header | //footer | //aside');
 		foreach ($alwaysRemove as $node) {
-			if ($node->parentNode) {
-				$node->parentNode->removeChild($node);
-			}
+			if ($node->parentNode) { $node->parentNode?->removeChild($node); }
 		}
 
-		// Try to find main content container first (cleanest signal)
-		$mainContent = $xpath->query(
-			'//main | //article | //*[@role="main"] | ' .
-			'//*[@id="content"] | //*[@id="main-content"] | //*[@id="main"] | ' .
-			'//*[@class="content"] | //*[@class="main-content"]'
-		)->item(0);
+		// Prepare html before extracting. Append \n to all block level tags
+		// This helps ensure <li> items are listed and not mangled into one block of text
+		$nodesToUpdate = $xpath->query(' //p | //li | //h1 | //h2 | //h3 | //h4 | //h5 | //div | //section | //article | //td | //tr');
+		foreach ($nodesToUpdate as $node) {
+			$node->appendChild($doc->createTextNode("\n"));
+		}
 
-		if ($mainContent) {
-			// Found main content - use it directly
-			$text = $mainContent->textContent;
-		} else {
+		// Remove skip links and screen reader elements
+		$skipLinks = $xpath->query(
+			'//*[contains(@class, "skip")] | ' .
+			'//*[contains(@class, "sr-only")] | ' .
+			'//*[contains(@class, "screen-reader")] | ' .
+			'//*[contains(@class, "visually-hidden")] | ' .
+			'//a[contains(translate(., "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "skip to")]'
+		);
+		foreach ($skipLinks as $node) { 
+			$node->parentNode?->removeChild($node); 
+		}
+
+		$doc = $xpath->query('//body')->item(0);
+		if (!$doc) { return ''; }
+
+		// Extract text content 
+		$text	= $doc->textContent;
+
+		// Try to find main content container first (cleanest signal)
+		// $mainContent = $xpath->query(
+		// 	'//main | //article | //*[@role="main"] | ' .
+		// 	'//*[@id="content"] | //*[@id="main-content"] | //*[@id="main"] | ' .
+		// 	'//*[@class="content"] | //*[@class="main-content"]'
+		// )->item(0);
+
+		// if ($mainContent) {	
+
+		// 	// Found main content - use it directly
+		// 	$text 	= $mainContent->textContent;
+		// } 
+		// else {
+
+		// 	$doc = $xpath->query('//body')->item(0);
+		// 	if (!$doc) { return ''; }
+
+		// 	// Extract text content 
+		// 	$text	= $doc->textContent;
+		// }
+		// else {
 			// Fallback: remove boilerplate from body
 
 			// Remove semantic nav elements
-			$nodesToRemove = $xpath->query('//nav | //header | //footer | //aside');
-			foreach ($nodesToRemove as $node) {
-				if ($node->parentNode) {
-					$node->parentNode->removeChild($node);
-				}
-			}
+			// $nodesToUpdate = $xpath->query('//nav | //header | //footer | //aside');
+			// foreach ($nodesToUpdate as $node) {
 
-			// Remove class/id-based navigation (word-boundary matching)
-			$boilerplate = $xpath->query(
-				'//*[contains(concat(" ", normalize-space(@class), " "), " nav ")] | ' .
-				'//*[contains(concat(" ", normalize-space(@class), " "), " navbar ")] | ' .
-				'//*[contains(concat(" ", normalize-space(@class), " "), " navigation ")] | ' .
-				'//*[contains(concat(" ", normalize-space(@class), " "), " menu ")] | ' .
-				'//*[contains(concat(" ", normalize-space(@class), " "), " sidebar ")] | ' .
-				'//*[contains(concat(" ", normalize-space(@class), " "), " footer ")] | ' .
-				'//*[contains(concat(" ", normalize-space(@class), " "), " header ")] | ' .
-				'//*[contains(concat(" ", normalize-space(@id), " "), " nav ")] | ' .
-				'//*[contains(concat(" ", normalize-space(@id), " "), " navbar ")] | ' .
-				'//*[contains(concat(" ", normalize-space(@id), " "), " navigation ")] | ' .
-				'//*[contains(concat(" ", normalize-space(@id), " "), " menu ")] | ' .
-				'//*[contains(concat(" ", normalize-space(@id), " "), " sidebar ")] | ' .
-				'//*[contains(concat(" ", normalize-space(@id), " "), " footer ")] | ' .
-				'//*[contains(concat(" ", normalize-space(@id), " "), " header ")]'
-			);
-			foreach ($boilerplate as $node) {
-				if ($node->parentNode) {
-					$node->parentNode->removeChild($node);
-				}
-			}
+			// 	if ($node->parentNode) {
+			// 		$node->parentNode->removeChild($node);
+			// 	}
+			// }
 
-			// Remove skip links and screen reader elements
-			$skipLinks = $xpath->query(
-				'//*[contains(@class, "skip")] | ' .
-				'//*[contains(@class, "sr-only")] | ' .
-				'//*[contains(@class, "screen-reader")] | ' .
-				'//*[contains(@class, "visually-hidden")] | ' .
-				'//a[contains(translate(., "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "skip to")]'
-			);
-			foreach ($skipLinks as $node) {
-				if ($node->parentNode) {
-					$node->parentNode->removeChild($node);
-				}
-			}
+			// // Remove class/id-based navigation (word-boundary matching)
+			// $boilerplate = $xpath->query(
+			// 	'//*[contains(concat(" ", normalize-space(@class), " "), " nav ")] | ' .
+			// 	'//*[contains(concat(" ", normalize-space(@class), " "), " navbar ")] | ' .
+			// 	'//*[contains(concat(" ", normalize-space(@class), " "), " navigation ")] | ' .
+			// 	'//*[contains(concat(" ", normalize-space(@class), " "), " menu ")] | ' .
+			// 	'//*[contains(concat(" ", normalize-space(@class), " "), " sidebar ")] | ' .
+			// 	'//*[contains(concat(" ", normalize-space(@class), " "), " footer ")] | ' .
+			// 	'//*[contains(concat(" ", normalize-space(@class), " "), " header ")] | ' .
+			// 	'//*[contains(concat(" ", normalize-space(@id), " "), " nav ")] | ' .
+			// 	'//*[contains(concat(" ", normalize-space(@id), " "), " navbar ")] | ' .
+			// 	'//*[contains(concat(" ", normalize-space(@id), " "), " navigation ")] | ' .
+			// 	'//*[contains(concat(" ", normalize-space(@id), " "), " menu ")] | ' .
+			// 	'//*[contains(concat(" ", normalize-space(@id), " "), " sidebar ")] | ' .
+			// 	'//*[contains(concat(" ", normalize-space(@id), " "), " footer ")] | ' .
+			// 	'//*[contains(concat(" ", normalize-space(@id), " "), " header ")]'
+			// );
+			// foreach ($boilerplate as $node) {
 
-			$body = $xpath->query('//body')->item(0);
-			if (!$body) {
-				return '';
-			}
+			// 	if ($node->parentNode) {
+			// 		$node->parentNode->removeChild($node);
+			// 	}
+			// }
 
-			$text = $body->textContent;
+			// Define structural target keywords
+			// $keywords 		= ["nav", "navbar", "navigation", "menu", "sidebar", "footer", "header"];
+		// 	$keywords 		= ["menu", "sidebar"];
+		// 	$expressions 	= [];
+
+		// 	// Loop to build boundary logic 
+		// 	foreach($keywords as $word) {
+
+		// 		// Translate converts '-' and '_' into spaces before checking boundaries
+		// 		$expressions[] = "//*[contains(concat(' ', normalize-space(translate(@class, '-_', ' ')), ' '), ' $word ')]";
+		// 		$expressions[] = "//*[contains(concat(' ', normalize-space(translate(@id , '-_', ' ')), ' '), ' $word ')]";
+		// 	}
+
+		// 	// Glue it all together in one single pass query and execute
+		// 	$finalQuery 	= implode(' | ', $expressions);
+		// 	$boilerplate 	= $xpath->query($finalQuery);
+
+		// 	foreach($boilerplate as $node) {
+		// 		$node->parentNode?->removeChild($node);
+		// 	}		
+
+		// 	// Clean whitespace, preserve paragraph breaks
+		// 	// $text = preg_replace('/[^\S\n]+/u', ' ', $text);       // Non-newline whitespace → space
+		// 	// $text = preg_replace('/\n+/u', "\n", $text);           // Multiple newlines → single
+		// 	// $text = preg_replace('/ ?\n ?/u', "\n", $text);        // Trim spaces around newlines
+		// 	// $text = preg_replace('/(\n ?){2,}/u', "\n\n", $text);  // 2+ newlines → paragraph break
+
+		// 	$doc = $xpath->query('//body')->item(0);
+		// 	if (!$doc) { return ''; }
+
+		// 	// Extract text content 
+		// 	$text	= $doc->textContent;
+		// }
+
+		// Check if it's already perfect 'UTF-8' before attempting to fix
+		if(!mb_check_encoding($text, 'UTF-8')) {
+			// then strip out any broken bytes sequences
+			$text	= mb_convert_encoding($text, 'UTF-8', 'UTF-8');
 		}
 
-		// Clean whitespace, preserve paragraph breaks
-		$text = preg_replace('/[^\S\n]+/u', ' ', $text);       // Non-newline whitespace → space
-		$text = preg_replace('/\n+/u', "\n", $text);           // Multiple newlines → single
-		$text = preg_replace('/ ?\n ?/u', "\n", $text);        // Trim spaces around newlines
-		$text = preg_replace('/(\n ?){2,}/u', "\n\n", $text);  // 2+ newlines → paragraph break
+		// Extract visible text
+        $text    = preg_replace('/^[ \t\x{00A0}\n]+/u', '', $text);
+        $text    = preg_replace('/^[ \t\x{00A0}]+/mu', '', $text);
+        $text    = preg_replace('/[ \t\r\x{00A0}]+/u', ' ', $text);
+        $text    = preg_replace('/[\n]{3,}/u', "\n\n", $text);
 
 		return trim($text);
 	}
@@ -769,6 +860,7 @@ class DOM
 		];
 
 		foreach (['h1', 'h2', 'h3', 'h4', 'h5', 'h6'] as $tag) {
+
 			$headings[$tag] = $this->filter($tag)->each(function($node) {
 				return $node->text();
 			});
@@ -796,25 +888,25 @@ class DOM
 	public function emphasized($withTags = false)
 	{
 		$emphasized = [];
-		$tags = ['strong', 'em', 'b', 'i', 'u', 'mark'];
+		$tags 		= ['strong', 'em', 'b', 'i', 'u', 'mark'];
 
 		foreach ($tags as $tag) {
+
 			$this->filter($tag)->each(function($node) use (&$emphasized, $tag, $withTags) {
+				
 				$text = trim($node->text());
 
 				// Skip empty text
-				if (empty($text)) {
-					return;
-				}
+				if (empty($text)) { return; }
 
 				if ($withTags) {
+					
 					$emphasized[] = [
 						'text' => $text,
 						'tag' => $tag
 					];
-				} else {
-					$emphasized[] = $text;
-				}
+				} 
+				else { $emphasized[] = $text; }
 			});
 		}
 
@@ -848,101 +940,99 @@ class DOM
 	 * @param array $options Link filtering options
 	 * @return array Array of links [['url' => ..., 'text' => ..., 'rel' => ...], ...]
 	 */
-	public function links($options = [])
-	{
-		// Default options
-		$options = array_merge([
-			'type' => 'all',           // 'all', 'internal', 'external'
-			'absolute' => true,         // Convert to absolute URLs
-			'follow' => null,           // null (all), true (follow), false (nofollow)
-			'with_anchors' => false,    // Include #fragment links
-			'tld' => null,              // Filter by single TLD (e.g., '.ke')
-			'tlds' => null              // Filter by multiple TLDs (e.g., ['.ke', '.co.ke'])
-		], $options);
+	// public function links($options = [])
+	// {
+	// 	// Default options
+	// 	$options = array_merge([
+	// 		'type' 		=> 'all',        // 'all', 'internal', 'external'
+	// 		'absolute' 	=> true,         // Convert to absolute URLs
+	// 		'follow' 	=> null,         // null (all), true (follow), false (nofollow)
+	// 		'with_anchors' => false,     // Include #fragment links
+	// 		'tld' 		=> null,         // Filter by single TLD (e.g., '.ke')
+	// 		'tlds' 		=> null          // Filter by multiple TLDs (e.g., ['.ke', '.co.ke'])
+	// 	], $options);
 
-		$links = [];
+	// 	$links = [];
 
-		$this->filter('a[href]')->each(function($node) use (&$links, $options) {
-			$href = $node->attr('href');
-			$text = $node->text();
-			$rel = $node->attr('rel');
+	// 	$this->filter('a[href]')->each(function($node) use (&$links, $options) {
 
-			// Skip empty hrefs
-			if (empty($href)) {
-				return;
-			}
+	// 		$href 	= $node->attr('href');
+	// 		$text 	= $node->text();
+	// 		$rel 	= $node->attr('rel');
 
-			// Skip javascript:, mailto:, tel: links
-			if (preg_match('/^(javascript|mailto|tel):/i', $href)) {
-				return;
-			}
+	// 		// Skip empty hrefs
+	// 		if (empty($href)) { return;	}
 
-			// Skip anchor links if not requested
-			if (!$options['with_anchors'] && strpos($href, '#') === 0) {
-				return;
-			}
+	// 		// Skip javascript:, mailto:, tel: links
+	// 		if (preg_match('/^(javascript|mailto|tel|whatsapp):/i', $href)) {
+	// 			return;
+	// 		}
 
-			// Convert to absolute URL if requested
-			if ($options['absolute']) {
-				$href = $this->absUrl($href);
-			}
+	// 		// Skip anchor links if not requested
+	// 		if (!$options['with_anchors'] && strpos($href, '#') === 0) {
+	// 			return;
+	// 		}
 
-			// Filter by type (internal/external)
-			if ($options['type'] !== 'all') {
-				$isExternal = $this->isExternal($href);
+	// 		// Convert to absolute URL if requested
+	// 		if ($options['absolute']) {
+	// 			$href = $this->absUrl($href);
+	// 		}
 
-				if ($options['type'] === 'internal' && $isExternal) {
-					return;
-				}
+	// 		// Filter by type (internal/external)
+	// 		if ($options['type'] !== 'all') {
 
-				if ($options['type'] === 'external' && !$isExternal) {
-					return;
-				}
-			}
+	// 			$isExternal = $this->isExternal($href);
 
-			// Filter by TLD (single)
-			if ($options['tld'] !== null) {
-				if (!$this->isTld($href, $options['tld'])) {
-					return;
-				}
-			}
+	// 			if ($options['type'] === 'internal' && $isExternal) {
+	// 				return;
+	// 			}
 
-			// Filter by TLDs (multiple)
-			if ($options['tlds'] !== null && is_array($options['tlds'])) {
-				$matchesTld = false;
-				foreach ($options['tlds'] as $tld) {
-					if ($this->isTld($href, $tld)) {
-						$matchesTld = true;
-						break;
-					}
-				}
-				if (!$matchesTld) {
-					return;
-				}
-			}
+	// 			if ($options['type'] === 'external' && !$isExternal) {
+	// 				return;
+	// 			}
+	// 		}
 
-			// Filter by follow/nofollow
-			if ($options['follow'] !== null) {
-				$isNofollow = stripos($rel, 'nofollow') !== false;
+	// 		// Filter by TLD (single)
+	// 		if ($options['tld'] !== null) {
 
-				if ($options['follow'] === true && $isNofollow) {
-					return;
-				}
+	// 			if (!$this->isTld($href, $options['tld'])) {
+	// 				return;
+	// 			}
+	// 		}
 
-				if ($options['follow'] === false && !$isNofollow) {
-					return;
-				}
-			}
+	// 		// Filter by TLDs (multiple)
+	// 		if ($options['tlds'] !== null && is_array($options['tlds'])) {
 
-			$links[] = [
-				'url' => $href,
-				'text' => $text,
-				'rel' => $rel
-			];
-		});
+	// 			$matchesTld = false;
+	// 			foreach ($options['tlds'] as $tld) {
 
-		return $links;
-	}
+	// 				if ($this->isTld($href, $tld)) {
+	// 					$matchesTld = true;
+	// 					break;
+	// 				}
+	// 			}
+	// 			if (!$matchesTld) { return; }
+	// 		}
+
+	// 		// Filter by follow/nofollow
+	// 		if ($options['follow'] !== null) {
+
+	// 			$isNofollow = stripos($rel, 'nofollow') !== false;
+
+	// 			if ($options['follow'] === true && $isNofollow) { return; }
+
+	// 			if ($options['follow'] === false && !$isNofollow) { return;	}
+	// 		}
+
+	// 		$links[] = [
+	// 			'url' => $href,
+	// 			'text' => $text,
+	// 			'rel' => $rel
+	// 		];
+	// 	});
+
+	// 	return $links;
+	// }
 
 	// =========================================================================
 	// IMAGES EXTRACTION
@@ -960,38 +1050,35 @@ class DOM
 	 * @param bool $absolute Convert src to absolute URLs (default: true)
 	 * @return array Array of images [['src' => ..., 'alt' => ..., 'title' => ...], ...]
 	 */
-	public function images($absolute = true)
-	{
-		$images = [];
+	// public function images($absolute = true)
+	// {
+	// 	$images = [];
 
-		$this->filter('img')->each(function($node) use (&$images, $absolute) {
-			$src = $node->attr('src');
-			$alt = $node->attr('alt');
-			$title = $node->attr('title');
-			$width = $node->attr('width');
-			$height = $node->attr('height');
+	// 	$this->filter('img')->each(function($node) use (&$images, $absolute) {
 
-			// Skip empty src
-			if (empty($src)) {
-				return;
-			}
+	// 		$src 	= $node->attr('src');
+	// 		$alt 	= $node->attr('alt');
+	// 		$title 	= $node->attr('title');
+	// 		$width 	= $node->attr('width');
+	// 		$height = $node->attr('height');
 
-			// Convert to absolute URL if requested
-			if ($absolute) {
-				$src = $this->absUrl($src);
-			}
+	// 		// Skip empty src
+	// 		if (empty($src)) { return; }
 
-			$images[] = [
-				'src' => $src,
-				'alt' => $alt,
-				'title' => $title,
-				'width' => $width ?: null,
-				'height' => $height ?: null
-			];
-		});
+	// 		// Convert to absolute URL if requested
+	// 		if ($absolute) { $src = $this->absUrl($src); }
 
-		return $images;
-	}
+	// 		$images[] = [
+	// 			'src' 	=> $src,
+	// 			'alt' 	=> $alt,
+	// 			'title' => $title,
+	// 			'width' => $width ?: null,
+	// 			'height'=> $height ?: null
+	// 		];
+	// 	});
+
+	// 	return $images;
+	// }
 
 	/**
 	 * Get detailed image data with comprehensive metadata
@@ -1013,33 +1100,36 @@ class DOM
 	 * @param array $options Configuration options
 	 * @return array Array of images with full metadata
 	 */
-	public function imageDetails($options = [])
+	public function images($options = [])
 	{
 		// Default options
 		$defaults = [
-			'context_words' => 20,
-			'min_size' => 0,
+			'context_words' => null,
+			'min_size' 		=> 0,
+			'max_images' 	=> null,
 		];
 		$options = array_merge($defaults, $options);
 
-		$images = [];
-		$imgNodes = $this->xpath->query("//img[@src]");
-		$position = 1;
+		$images 	= [];
+
+		$maxImages 	= $options['max_images'] ? "[position() <= " . (int) $options['max_images'] . "]" : "";
+		$imgNodes 	= $this->xpath->query("(//body//img[@src])$maxImages");
+		$position 	= 1;
 
 		foreach ($imgNodes as $img) {
-			$src = trim($img->getAttribute('src'));
-			$alt = trim($img->getAttribute('alt'));
-			$title = trim($img->getAttribute('title'));
-			$width = $img->getAttribute('width') ?: null;
+
+			$src 	= trim($img->getAttribute('src'));
+			$alt 	= trim($img->getAttribute('alt'));
+			$title 	= trim($img->getAttribute('title'));
+			$width 	= $img->getAttribute('width') ?: null;
 			$height = $img->getAttribute('height') ?: null;
 
 			// Skip empty src
-			if (empty($src)) {
-				continue;
-			}
+			if (empty($src)) { continue; }
 
 			// Skip tiny images (icons, spacers)
 			if ($options['min_size'] > 0) {
+
 				if (($width && $width < $options['min_size']) ||
 				    ($height && $height < $options['min_size'])) {
 					continue;
@@ -1050,20 +1140,23 @@ class DOM
 			$src = $this->absUrl($src);
 
 			// Check if image is wrapped in <a> tag
-			$parent = $img->parentNode;
-			$isLink = false;
-			$linkUrl = null;
+			$parent 	= $img->parentNode;
+			$isLink 	= false;
+			$linkUrl 	= null;
+
 			if ($parent && strtolower($parent->nodeName) === 'a') {
-				$isLink = true;
-				$linkUrl = $parent->getAttribute('href');
+
+				$isLink 	= true;
+				$linkUrl 	= $parent->getAttribute('href');
 				if ($linkUrl) {
 					$linkUrl = $this->absUrl($linkUrl);
 				}
 			}
 
 			// Check if image is in <figure>, extract <figcaption>
-			$caption = null;
-			$figureParent = $img->parentNode;
+			$caption 		= null;
+			$figureParent 	= $img->parentNode;
+
 			if ($figureParent && strtolower($figureParent->nodeName) === 'a') {
 				// If wrapped in <a>, check grandparent for <figure>
 				$figureParent = $figureParent->parentNode;
@@ -1077,25 +1170,26 @@ class DOM
 			}
 
 			// Detect placement (content, header, sidebar, footer, navigation)
-			$placement = $this->detectContextType($img);
+			$placement = $this->detectPlacement($img);
 
 			// Extract surrounding text context
-			$contextText = null;
-			if ($placement === 'content') {
-				$contextText = $this->extractSurroundingContext($img, $options['context_words']);
+			$contextWords = null;
+			// if ($placement === 'content' && $options['context_words']) {
+			if ($options['context_words']) {
+				$contextWords = $this->extractSurroundingContext($img, (int) $options['context_words']);
 			}
 
 			$images[] = [
-				'src' => $src,
-				'alt' => $alt ?: null,
-				'title' => $title ?: null,
-				'width' => $width,
-				'height' => $height,
-				'position' => $position,
-				'context_text' => $contextText,
-				'caption' => $caption,
-				'is_link' => $isLink,
-				'link_url' => $linkUrl,
+				'src' 		=> $src,
+				'alt' 		=> $alt ?: null,
+				'title' 	=> $title ?: null,
+				'width' 	=> $width,
+				'height' 	=> $height,
+				'position' 	=> $position,
+				'context_text' => $contextWords,
+				'caption' 	=> $caption,
+				'is_link' 	=> $isLink,
+				'link_url' 	=> $linkUrl,
 				'placement' => $placement,
 			];
 
@@ -1141,39 +1235,57 @@ class DOM
 	public function favicon()
 	{
 		// Check <link rel="icon">
-		$iconLinks = $this->xpath->query("//link[@rel='icon']");
-		if ($iconLinks->length > 0) {
-			$href = $iconLinks->item(0)->getAttribute('href');
-			if ($href) {
-				return $this->absUrl($href);
-			}
-		}
+		$iconNodes = $this->xpath->query("//link[@rel='icon'] | //link[@rel='shortcut icon'] | //link[@rel='apple-touch-icon']");
+		if ($iconNodes->length > 0) {
 
-		// Check <link rel="shortcut icon">
-		$shortcutLinks = $this->xpath->query("//link[@rel='shortcut icon']");
-		if ($shortcutLinks->length > 0) {
-			$href = $shortcutLinks->item(0)->getAttribute('href');
-			if ($href) {
-				return $this->absUrl($href);
-			}
-		}
-
-		// Check <link rel="apple-touch-icon">
-		$appleLinks = $this->xpath->query("//link[@rel='apple-touch-icon']");
-		if ($appleLinks->length > 0) {
-			$href = $appleLinks->item(0)->getAttribute('href');
-			if ($href) {
-				return $this->absUrl($href);
-			}
+			foreach($iconNodes as $node) {
+				$href = $node->item(0)->getAttribute('href');
+				if ($href) return $this->absUrl($href);
+			}			
 		}
 
 		// Default fallback: /favicon.ico
 		if ($this->baseUrl) {
+
 			$parsed = parse_url($this->baseUrl);
 			if (isset($parsed['scheme']) && isset($parsed['host'])) {
 				return $parsed['scheme'] . '://' . $parsed['host'] . '/favicon.ico';
 			}
 		}
+		
+		// // Check <link rel="icon">
+		// $iconLinks = $this->xpath->query("//link[@rel='icon']");
+		// if ($iconLinks->length > 0) {
+		// 	$href = $iconLinks->item(0)->getAttribute('href');
+		// 	if ($href) { return $this->absUrl($href); }
+		// }
+
+		// // Check <link rel="shortcut icon">
+		// $shortcutLinks = $this->xpath->query("//link[@rel='shortcut icon']");
+		// if ($shortcutLinks->length > 0) {
+
+		// 	$href = $shortcutLinks->item(0)->getAttribute('href');
+		// 	if ($href) {
+		// 		return $this->absUrl($href);
+		// 	}
+		// }
+
+		// // Check <link rel="apple-touch-icon">
+		// $appleLinks = $this->xpath->query("//link[@rel='apple-touch-icon']");
+		// if ($appleLinks->length > 0) {
+
+		// 	$href = $appleLinks->item(0)->getAttribute('href');
+		// 	if ($href) { return $this->absUrl($href); }
+		// }
+
+		// // Default fallback: /favicon.ico
+		// if ($this->baseUrl) {
+
+		// 	$parsed = parse_url($this->baseUrl);
+		// 	if (isset($parsed['scheme']) && isset($parsed['host'])) {
+		// 		return $parsed['scheme'] . '://' . $parsed['host'] . '/favicon.ico';
+		// 	}
+		// }
 
 		return null;
 	}
@@ -1199,7 +1311,7 @@ class DOM
 		// Already absolute - check for common URL schemes
 		// Web: http, https, ftp, ftps
 		// Special: mailto, tel, sms, javascript, data, file
-		if (preg_match('/^(https?|ftp|ftps|mailto|tel|sms|javascript|data|file):/i', $url)) {
+		if (preg_match('/^(https?|ftp|ftps|mailto|tel|whatsapp|sms|javascript|data|file):/i', $url)) {
 			return $url;
 		}
 
@@ -1218,9 +1330,11 @@ class DOM
 
 		// Absolute path (/path)
 		if (strpos($url, '/') === 0) {
+
 			$scheme = $base['scheme'] ?? 'http';
-			$host = $base['host'] ?? '';
-			$port = isset($base['port']) ? ':' . $base['port'] : '';
+			$host 	= $base['host'] ?? '';
+			$port 	= isset($base['port']) ? ':' . $base['port'] : '';
+
 			return "{$scheme}://{$host}{$port}{$url}";
 		}
 
@@ -1233,9 +1347,9 @@ class DOM
 		$parts = [];
 
 		foreach (explode('/', $absolutePath) as $part) {
-			if ($part === '..') {
-				array_pop($parts);
-			} elseif ($part !== '.' && $part !== '') {
+
+			if ($part === '..') { array_pop($parts); } 
+			elseif ($part !== '.' && $part !== '') {
 				$parts[] = $part;
 			}
 		}
@@ -1243,8 +1357,8 @@ class DOM
 		$path = '/' . implode('/', $parts);
 
 		$scheme = $base['scheme'] ?? 'http';
-		$host = $base['host'] ?? '';
-		$port = isset($base['port']) ? ':' . $base['port'] : '';
+		$host 	= $base['host'] ?? '';
+		$port 	= isset($base['port']) ? ':' . $base['port'] : '';
 
 		return "{$scheme}://{$host}{$port}{$path}";
 	}
@@ -1271,11 +1385,11 @@ class DOM
 		$absoluteUrl = $this->absUrl($url);
 
 		// Parse both URLs
-		$urlHost = parse_url($absoluteUrl, PHP_URL_HOST);
-		$baseHost = parse_url($this->baseUrl, PHP_URL_HOST);
+		$urlHost 	= parse_url($absoluteUrl, PHP_URL_HOST);
+		// $baseHost 	= parse_url($this->baseUrl, PHP_URL_HOST);
 
 		// Different hosts = external
-		return $urlHost !== $baseHost;
+		return $urlHost !== $this->baseHost;
 	}
 
 	/**
@@ -1291,26 +1405,26 @@ class DOM
 	 * @param string $tld TLD to check for (e.g., '.ke', '.co.ke', '.com')
 	 * @return bool True if URL has the TLD
 	 */
-	public function isTld($url, $tld)
-	{
-		// Make URL absolute first
-		$absoluteUrl = $this->absUrl($url);
+	// public function isTld($url, $tld)
+	// {
+	// 	// Make URL absolute first
+	// 	$absoluteUrl = $this->absUrl($url);
 
-		// Parse URL to get host
-		$host = parse_url($absoluteUrl, PHP_URL_HOST);
+	// 	// Parse URL to get host
+	// 	$host = parse_url($absoluteUrl, PHP_URL_HOST);
 
-		if (!$host) {
-			return false;
-		}
+	// 	if (!$host) {
+	// 		return false;
+	// 	}
 
-		// Normalize TLD (ensure it starts with dot)
-		if (strpos($tld, '.') !== 0) {
-			$tld = '.' . $tld;
-		}
+	// 	// Normalize TLD (ensure it starts with dot)
+	// 	if (strpos($tld, '.') !== 0) {
+	// 		$tld = '.' . $tld;
+	// 	}
 
-		// Check if host ends with TLD
-		return substr($host, -strlen($tld)) === $tld;
-	}
+	// 	// Check if host ends with TLD
+	// 	return substr($host, -strlen($tld)) === $tld;
+	// }
 
 	/**
 	 * Remove script and style tags from current selection
@@ -1336,9 +1450,8 @@ class DOM
 		// Remove <script> tags (optionally preserve JSON-LD)
 		if ($preserveJsonLd) {
 			$scripts = $this->xpath->query('//script[not(@type="application/ld+json")]');
-		} else {
-			$scripts = $this->xpath->query('//script');
-		}
+		} 
+		else { $scripts = $this->xpath->query('//script'); }
 
 		foreach ($scripts as $node) {
 			$node->parentNode->removeChild($node);
@@ -1406,8 +1519,10 @@ class DOM
 
 		// Handle multiple selectors (comma-separated)
 		if (strpos($selector, ',') !== false) {
-			$selectors = explode(',', $selector);
-			$xpaths = array_map([$this, 'cssToXpath'], array_map('trim', $selectors));
+
+			$selectors 	= explode(',', $selector);
+			$xpaths 	= array_map([$this, 'cssToXpath'], array_map('trim', $selectors));
+
 			return implode(' | ', $xpaths);
 		}
 
@@ -1419,10 +1534,11 @@ class DOM
 		}
 
 		// Split by spaces (descendant combinator)
-		$parts = preg_split('/\s+/', $selector);
+		$parts 		= preg_split('/\s+/', $selector);
 		$xpathParts = [];
 
 		foreach ($parts as $part) {
+
 			$xpathPart = $this->cssPartToXpath($part);
 			$xpathParts[] = $xpathPart;
 		}
@@ -1442,39 +1558,47 @@ class DOM
 	{
 		// Element with ID: div#main
 		if (preg_match('/^(\w+)?#([\w-]+)$/', $part, $matches)) {
+
 			$element = $matches[1] ?: '*';
-			$id = $matches[2];
+			$id 	 = $matches[2];
+
 			return "{$element}[@id='{$id}']";
 		}
 
 		// Element with class: div.content
 		if (preg_match('/^(\w+)?\.([\w-]+)$/', $part, $matches)) {
-			$element = $matches[1] ?: '*';
-			$class = $matches[2];
+
+			$element 	= $matches[1] ?: '*';
+			$class 		= $matches[2];
+
 			return "{$element}[contains(concat(' ', normalize-space(@class), ' '), ' {$class} ')]";
 		}
 
 		// ID only: #main
 		if (preg_match('/^#([\w-]+)$/', $part, $matches)) {
+
 			$id = $matches[1];
 			return "*[@id='{$id}']";
 		}
 
 		// Class only: .content
 		if (preg_match('/^\.([\w-]+)$/', $part, $matches)) {
+
 			$class = $matches[1];
 			return "*[contains(concat(' ', normalize-space(@class), ' '), ' {$class} ')]";
 		}
 
 		// Attribute selector: [name="value"]
 		if (preg_match('/^(\w+)?\[(\w+)(?:="([^"]+)")?\]$/', $part, $matches)) {
-			$element = $matches[1] ?: '*';
-			$attr = $matches[2];
-			$value = $matches[3] ?? null;
+
+			$element 	= $matches[1] ?: '*';
+			$attr 		= $matches[2];
+			$value 		= $matches[3] ?? null;
 
 			if ($value !== null) {
 				return "{$element}[@{$attr}='{$value}']";
-			} else {
+			} 
+			else {
 				return "{$element}[@{$attr}]";
 			}
 		}
@@ -1523,8 +1647,9 @@ class DOM
 
 		$og = [];
 		foreach ($ogTags as $tag) {
-			$property = $tag->getAttribute('property');
-			$content = $tag->getAttribute('content');
+
+			$property 	= $tag->getAttribute('property');
+			$content 	= $tag->getAttribute('content');
 
 			// Remove 'og:' prefix for cleaner keys
 			$key = str_replace('og:', '', $property);
@@ -1547,12 +1672,12 @@ class DOM
 
 		$schemas = [];
 		foreach ($scripts as $script) {
+
 			$json = trim($script->textContent);
 			if (!empty($json)) {
+
 				$data = json_decode($json, true);
-				if ($data !== null) {
-					$schemas[] = $data;
-				}
+				if ($data !== null) { $schemas[] = $data; }
 			}
 		}
 
@@ -1585,7 +1710,7 @@ class DOM
 		$avgSentenceLength = $sentenceCount > 0 ? round($wordCount / $sentenceCount, 1) : 0;
 
 		// Unique word ratio (for duplicate content detection)
-		$words = str_word_count(strtolower($bodyText), 1);
+		$words 		 = str_word_count(strtolower($bodyText), 1);
 		$uniqueWords = count(array_unique($words));
 		$uniqueRatio = $wordCount > 0 ? round($uniqueWords / $wordCount, 3) : 0;
 
@@ -1613,35 +1738,44 @@ class DOM
 	 * @param array $options Configuration options
 	 * @return array Categorized links with context
 	 */
-	public function linkDetails($options = [])
-	{
-		// Default options
-		$defaults = [
-			'tlds' => ['.ke', '.co.ke', '.or.ke', '.ac.ke', '.sc.ke', '.go.ke'],
-			'context_words' => 25,
-			'include_navigation' => true,
-		];
-		$options = array_merge($defaults, $options);
+	public function links($options = [])
+	{	
 
-		$linkNodes = $this->xpath->query("//a[@href]");
+		// Default options
+		$options = array_merge([
+			'type' 			=> 'all',        // 'all', 'internal', 'external'
+			'max_links' 	=> null, 		 // Maximum number of links to return, default 1k
+			'body_links' 	=> false, 		 // Whether to only pick links from <body> or whole <html>
+			'absolute' 		=> true,         // Convert to absolute URLs
+			'do_follow' 	=> null,         // null (all), true (follow), false (nofollow)
+			'with_anchors' 	=> false,        // Include #fragment links
+			'tlds' 			=> null,         // Filter by single or multiple TLDs (e.g., ['.ke', '.co.ke'])
+			'context_words' => null, 		 // Number of surrounding words around the link
+			'include_nav'   => true,
+		], $options);
+
+		$bodyLinks 	= $options['body_links'] ? "//body" : "";
+		$maxLinks	= $options['max_links']  ? "[position() <=" . (int)$options['max_links'] . "]" :  "";
+
+		// Query string
+		$linkNodes 	= $this->xpath->query("($bodyLinks//a[@href])$maxLinks");
 
 		$links = [
 			'crawlable' => [],
-			'document' => [],
-			'media' => [],
-			'resource' => [],
-			'anchor' => [],
+			'document' 	=> [],
+			'media' 	=> [],
+			'resource' 	=> [],
+			'anchor' 	=> [],
 		];
 
-		$position = 0;
+		$position 	= 0;
 
 		foreach ($linkNodes as $link) {
+
 			$href = trim($link->getAttribute('href'));
 
 			// Skip empty hrefs
-			if (empty($href)) {
-				continue;
-			}
+			if (empty($href)) continue;
 
 			// Skip javascript:, mailto:, tel: links
 			if (preg_match('/^(javascript|mailto|tel):/i', $href)) {
@@ -1649,24 +1783,27 @@ class DOM
 			} 
 
 			// Resolve to absolute URL
-			$absoluteUrl = $this->absUrl($href);
+			if($options['absolute']) $href = $this->absUrl($href);
 
 			// Strip fragment identifier (#section) - same page, different scroll position
 			// URLs like /page#section1 and /page#section2 are the same HTML document
-			$absoluteUrl = preg_replace('/#.*$/', '', $absoluteUrl);
+			if(!$options['with_anchors']) $href = preg_replace('/#.*$/', '', $href);
 
+			if($options['tlds']) {
+				// if (!$this->matchesTlds($href, $options['tlds']) && $linkData['link_type'] === 'crawlable') {
+				if (!$this->matchesTlds($href, $options['tlds'])) {
+					
+					$position++;
+					continue;
+				}
+			}	
+			
 			// Extract link data
-			$linkData = $this->analyzeLinkNode($link, $absoluteUrl, $position, $options);
-
-			// Skip if doesn't match TLD filter (except for documents/media which we track)
-			if (!$this->matchesTlds($absoluteUrl, $options['tlds']) &&
-			    $linkData['link_type'] === 'crawlable') {
-				$position++;
-				continue;
-			}
+			$linkData = $this->analyzeLinkNode($link, $href, $position, $options);
 
 			// Categorize link
 			$category = $linkData['link_type'];
+
 			if (isset($links[$category])) {
 				$links[$category][] = $linkData;
 			}
@@ -1692,70 +1829,82 @@ class DOM
 		$anchorText = trim($link->textContent);
 		$anchorType = 'text';
 
+		// Payload to return; populate it along the way
+		$details 	= [];
+
 		// If no anchor text, check for image and use alt text
 		if (empty($anchorText)) {
+
 			$imgNodes = $this->xpath->query('.//img[@src]', $link);
+
 			if ($imgNodes->length > 0) {
-				$img = $imgNodes->item(0);
+
+				$img 	 = $imgNodes->item(0);
 				$altText = trim($img->getAttribute('alt'));
+
 				if (!empty($altText)) {
+
 					$anchorText = $altText;
 					$anchorType = 'image';
-				} else {
+				} 
+				else {
+
 					$anchorText = '[image]';
 					$anchorType = 'image';
 				}
-			} else {
+			} 
+			else {
+
 				// No text, no image - mark as empty
 				$anchorText = '[empty]';
 			}
 		}
 
-		$rel = $link->getAttribute('rel') ?: '';
-		$downloadAttr = $link->hasAttribute('download');
-		$typeAttr = $link->getAttribute('type') ?: '';
+		$rel 			= $link->getAttribute('rel') ?: '';
+		$downloadAttr 	= $link->hasAttribute('download');
+		$typeAttr 		= $link->getAttribute('type') ?: '';
 
 		// Classify link type
 		$classification = $this->classifyLink($absoluteUrl, $typeAttr, $downloadAttr);
 
 		// Detect context type (navigation, content, metadata, footer)
-		$contextType = $this->detectContextType($link);
+		$placement 	= $this->detectPlacement($link);
 
 		// Extract surrounding context (for content links)
-		$surroundingText = null;
-		$parentText = null;
-		if ($contextType === 'content') {
-			$surroundingText = $this->extractSurroundingContext($link, $options['context_words']);
+		$contextWords = null;
+
+		if ($options['context_words']) {
+			$contextWords = $this->extractSurroundingContext($link, (int) $options['context_words']);
 		}
 
 		// Get parent tag
-		$parentTag = $link->parentNode ? $link->parentNode->nodeName : null;
+		$parentTag 	= $link->parentNode ? $link->parentNode->nodeName : null;
 
 		// Detect semantic role
-		$semanticRole = $this->detectSemanticRole($link);
+		$semanticRole 	= $this->detectSemanticRole($link);
 
 		// Check if internal
-		$isInternal = $this->isInternalLink($absoluteUrl);
+		$isInternal 	= $this->isInternalLink($absoluteUrl);		
 
 		return [
-			'url' => $absoluteUrl,
+			'url' 		  => $absoluteUrl,
 			'anchor_text' => $anchorText,
 			'anchor_type' => $anchorType,
-			'position' => $position,
+			'position' 	  => $position,
 
 			// Classification
-			'link_type' => $classification['type'],
+			'link_type' 	=> $classification['type'],
 			'document_type' => $classification['document_type'],
-			'rel' => $rel,
+			'rel' 			=> $rel,
 
 			// Context
-			'placement' => $contextType,
-			'parent_tag' => $parentTag,
-			'surrounding_text' => $surroundingText,
-			'semantic_role' => $semanticRole,
+			'placement' 		=> $placement,
+			'parent_tag' 		=> $parentTag,
+			'context_words' 	=> $contextWords,
+			'semantic_role' 	=> $semanticRole,
 
 			// Technical
-			'is_internal' => $isInternal,
+			'is_internal' 		=> $isInternal,
 			'has_download_attr' => $downloadAttr,
 		];
 	}
@@ -1813,25 +1962,26 @@ class DOM
 	 * @param \DOMElement $link Link element
 	 * @return string Placement type
 	 */
-	private function detectContextType($link)
+	private function detectPlacement($link)
 	{
 		// Walk up the DOM tree looking for semantic containers
-		$current = $link->parentNode;
-		$depth = 0;
-		$maxDepth = 5; // Don't go too far up
+		$current 	= $link->parentNode;
+		$depth 		= 0;
+		$maxDepth 	= 5; // Don't go too far up
 
 		while ($current && $depth < $maxDepth) {
+
 			$tagName = strtolower($current->nodeName);
 
 			// Semantic HTML5 tags
-			if ($tagName === 'nav') return 'nav';
-			if ($tagName === 'header') return 'nav';
-			if ($tagName === 'footer') return 'footer';
-			if ($tagName === 'aside') return 'sidebar';
+			if ($tagName === 'nav') 	return 'nav';
+			if ($tagName === 'header') 	return 'nav';
+			if ($tagName === 'footer') 	return 'footer';
+			if ($tagName === 'aside') 	return 'sidebar';
 
 			// Content tags
 			if ($tagName === 'article') return 'content';
-			if ($tagName === 'main') return 'content';
+			if ($tagName === 'main') 	return 'content';
 			if (in_array($tagName, ['p', 'li', 'td', 'blockquote'])) return 'content';
 
 			// Check class/id for common patterns
@@ -1902,17 +2052,17 @@ class DOM
 		}
 
 		// Split into words
-		$words = preg_split('/\s+/u', $parentText);
-		$linkWords = preg_split('/\s+/u', $linkText);
+		$words 		= preg_split('/\s+/u', $parentText);
+		$linkWords  = preg_split('/\s+/u', $linkText);
 
 		// Find word position of link
-		$beforeText = mb_substr($parentText, 0, $linkPos);
-		$beforeWords = preg_split('/\s+/u', $beforeText, -1, PREG_SPLIT_NO_EMPTY);
-		$linkStartWordPos = count($beforeWords);
+		$beforeText 	 = mb_substr($parentText, 0, $linkPos);
+		$beforeWords 	 = preg_split('/\s+/u', $beforeText, -1, PREG_SPLIT_NO_EMPTY);
+		$linkStartWordPos= count($beforeWords);
 
 		// Extract context window
-		$startPos = max(0, $linkStartWordPos - $contextWords);
-		$endPos = min(count($words), $linkStartWordPos + count($linkWords) + $contextWords);
+		$startPos 	= max(0, $linkStartWordPos - $contextWords);
+		$endPos 	= min(count($words), $linkStartWordPos + count($linkWords) + $contextWords);
 
 		$contextWords = array_slice($words, $startPos, $endPos - $startPos);
 
@@ -1929,14 +2079,15 @@ class DOM
 	{
 		// Check rel attribute
 		$rel = $link->getAttribute('rel');
-		if ($rel === 'author') return 'author';
-		if ($rel === 'tag') return 'tag';
+
+		if ($rel === 'author') 	 return 'author';
+		if ($rel === 'tag') 	 return 'tag';
 		if ($rel === 'category') return 'category';
 
 		// Check link class/id
-		$class = $link->getAttribute('class');
-		$id = $link->getAttribute('id');
-		$combined = strtolower($class . ' ' . $id);
+		$class 	 	= $link->getAttribute('class');
+		$id 		= $link->getAttribute('id');
+		$combined 	= strtolower($class . ' ' . $id);
 
 		if (preg_match('/\b(author|byline)\b/', $combined)) return 'author';
 		if (preg_match('/\b(category|cat)\b/', $combined)) return 'category';
@@ -1946,6 +2097,7 @@ class DOM
 		// Check parent context
 		$parent = $link->parentNode;
 		if ($parent instanceof \DOMElement) {
+
 			$parentClass = strtolower($parent->getAttribute('class'));
 
 			if (preg_match('/\b(author|byline)\b/', $parentClass)) return 'author';
@@ -1964,8 +2116,8 @@ class DOM
 	 */
 	private function isInternalLink($url)
 	{
-		$urlHost = parse_url($url, PHP_URL_HOST);
-		$baseHost = parse_url($this->baseUrl, PHP_URL_HOST);
+		$urlHost 	= parse_url($url, PHP_URL_HOST);
+		$baseHost 	= parse_url($this->baseUrl, PHP_URL_HOST);
 
 		// Remove www. prefix for comparison
 		if ($urlHost) $urlHost = preg_replace('/^www\./i', '', $urlHost);
@@ -1984,15 +2136,19 @@ class DOM
 	private function matchesTlds($url, $tlds)
 	{
 		$host = parse_url($url, PHP_URL_HOST);
-		if (!$host) {
-			return false;
-		}
+		if (!$host) { return false; }
 
-		foreach ($tlds as $tld) {
-			if (substr($host, -strlen($tld)) === $tld) {
+		// foreach ($tlds as $tld) {
+		// 	if (substr($host, -strlen($tld)) === $tld) { return true; }
+		// }	
+		
+		// Let's use the new function in town
+		foreach($tlds as $tld) {			
+
+			if(str_ends_with($host, $tld)) {
 				return true;
-			}
-		}
+			}					
+		}		
 
 		return false;
 	}

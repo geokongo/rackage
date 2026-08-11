@@ -52,6 +52,14 @@ class Registry {
 	private static $settings = array();
 
 	/**
+	 * Application security configuration (from security.php)
+	 * Contains specific header settings and ip blacklists
+	 * 
+	 * @var array
+	 */
+	private static $security;
+
+	/**
 	 * Database configuration (from database.php)
 	 * Contains database connection settings for all drivers
 	 * 
@@ -208,38 +216,40 @@ class Registry {
 
 	/**
 	 * Set application settings (from settings.php)
+	 * 
+	 * If $settings is provided then set the configuration array, otherwise return
+	 * the currently set $settings array to caller.
 	 *
 	 * @param array $settings Application configuration array
 	 * @return self For method chaining
 	 */
-	public static function setSettings($settings)
+	public static function settings($settings  = null)
 	{
-		static::$settings = $settings;
-		return new static;
-	}
+		if($settings) {
 
-	/**
-	 * Set database configuration (from database.php)
-	 *
-	 * @param array $database Database configuration array
-	 * @return self For method chaining
-	 */
-	public static function setDatabase($database)
-	{
-		static::$database = $database;
-		return new static;
+			static::$settings = $settings;
+			return new static;
+		}
+		else return static::$settings;
 	}
 
 	/**
 	 * Set cache configuration (from cache.php)
+	 * 
+	 * If the $cache configuration is provided set it, otherwise return the currently
+	 * set configuration for the appication cache.
 	 *
 	 * @param array $cache Cache configuration array
 	 * @return self For method chaining
 	 */
-	public static function setCache($cache)
+	public static function cacheConfig($cache = null)
 	{
-		static::$cache = $cache;
-		return new static;
+		if($cache) {
+
+			static::$cache = $cache;
+			return new static;
+		}
+		else return static::$cache;
 	}
 
 	/**
@@ -248,10 +258,33 @@ class Registry {
 	 * @param array $mail Mail configuration array
 	 * @return self For method chaining
 	 */
-	public static function setMail($mail)
+	public static function mailConfig($mail = null)
 	{
-		static::$mail = $mail;
-		return new static;
+		if($mail) {
+
+			static::$mail = $mail;
+			return new static;
+		}
+		else return static::$mail;
+	}
+
+	/**
+	 * Set security configuration (from security.php)
+	 * 
+	 * If $security is provided it sets the current security settings,
+	 * otherwise returns the current security settings.
+	 *
+	 * @param array $security Security configuration array
+	 * @return self For method chaining
+	 */
+	public static function securityConfig($security = null)
+	{
+		if($security) {
+
+			static::$security = $security;
+			return new static;
+		}
+		else return static::$security;
 	}
 
 	/**
@@ -276,25 +309,24 @@ class Registry {
 	{
 		static::$shouldCache = $shouldCache;
 	}
-
-    /**
-     * Shorthand getter for settings
-     *
-     * @return array Application settings
-     */
-    public static function settings()
-    {
-        return static::$settings;
-    }
     
     /**
-     * Shorthand getter for database config
+     * Shorthand setter and getter for database configuration.
+	 * 
+	 * Same method used for both operations. If the confugration is provided it sets it
+	 * then returns the static class. Otherwise it returns what's inside $database.
      * 
-     * @return array Database configuration
+	 * @param array $database Configuration of the database
+     * @return array Database configuration if no param is supplied
      */
-    public static function database()
+    public static function dbConfig($database = null)
     {
-        return static::$database;
+		if($database) {
+
+			static::$database = $database;
+			return new static;
+		}
+		else return static::$database;
     }
     
     /**
@@ -305,17 +337,7 @@ class Registry {
     public static function cache()
     {
         return static::$cache;
-    }
-    
-    /**
-     * Shorthand getter for mail config
-     * 
-     * @return array Mail configuration
-     */
-    public static function mail()
-    {
-        return static::$mail;
-    }
+    }    
     
     /**
      * Shorthand getter for URL
@@ -390,7 +412,7 @@ class Registry {
 		$config = static::$database;
 
 		if (empty($config)) {
-			throw new \RuntimeException('Database configuration not loaded. Call Registry::setDatabase() first.');
+			throw new \RuntimeException('Database configuration not loaded. Call Registry::dbConfig() first.');
 		}
 
 		// Create and connect database instance
@@ -418,7 +440,7 @@ class Registry {
 		$config = static::$database;
 
 		if (empty($config)) {
-			throw new \RuntimeException('Database configuration not loaded. Call Registry::setDatabase() first.');
+			throw new \RuntimeException('Database configuration not loaded. Call Registry::dbConfig() first.');
 		}
 
 		// Create and connect database instance
@@ -446,7 +468,7 @@ class Registry {
 		$config = static::$database;
 
 		if (empty($config)) {
-			throw new \RuntimeException('Database configuration not loaded. Call Registry::setDatabase() first.');
+			throw new \RuntimeException('Database configuration not loaded. Call Registry::dbConfig() first.');
 		}
 
 		// Create and connect database instance
@@ -477,7 +499,7 @@ class Registry {
 		$config = static::$database;
 
 		if (empty($config)) {
-			throw new \RuntimeException('Database configuration not loaded. Call Registry::setDatabase() first.');
+			throw new \RuntimeException('Database configuration not loaded. Call Registry::dbConfig() first.');
 		}
 
 		// Create and connect database instance
@@ -506,7 +528,7 @@ class Registry {
 		$config = static::$database;
 
 		if (empty($config)) {
-			throw new \RuntimeException('Database configuration not loaded. Call Registry::setDatabase() first.');
+			throw new \RuntimeException('Database configuration not loaded. Call Registry::dbConfig() first.');
 		}
 
 		// Clone config and remove database parameter
@@ -538,7 +560,7 @@ class Registry {
 		$config = static::$cache;
 
 		if (empty($config)) {
-			throw new \RuntimeException('Cache configuration not loaded. Call Registry::setCache() first.');
+			throw new \RuntimeException('Cache configuration not loaded. Call Registry::cacheConfig() first.');
 		}
 
 		// Get default driver type

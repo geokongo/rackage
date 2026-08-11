@@ -492,10 +492,14 @@ class MySQLQuery
 	public function limit($limit, $page = 1)
 	{
 		// Validate limit is not empty
-		if (empty($limit))
-		{
+		if (empty($limit)) {
+
 			throw new DatabaseException("Empty argument passed for $limit in method limit()", 1);
 		}
+
+		// Cast to int to prevent injection
+		$limit 	= (int) $limit;
+		$page 	= (int) $page;
 
 		// Set limit
 		$this->limit = $limit;
@@ -1635,6 +1639,10 @@ class MySQLQuery
 	 */
 	public function paginate($perPage = 15, $page = 1)
 	{
+		// Cast to int to prevent injection
+		$perPage 	= (int) $perPage;
+		$page 		= (int) $page;
+
 		if ($perPage < 1) {
 			throw new DatabaseException("Invalid perPage value (must be >= 1)", 1);
 		}
@@ -1646,20 +1654,16 @@ class MySQLQuery
 		$countQuery = clone $this;
 		$total = $countQuery->count();
 
-		if (is_string($total)) {
-			return $total;
-		}
+		if(is_string($total))  return $total;
 
 		$this->limit($perPage, $page);
 		$data = $this->all();
 
-		if (is_string($data)) {
-			return $data;
-		}
+		if (is_string($data)) return $data;
 
-		$lastPage = (int)ceil($total / $perPage);
-		$from = (($page - 1) * $perPage) + 1;
-		$to = min($from + $perPage - 1, $total);
+		$lastPage 	= (int)ceil($total / $perPage);
+		$from 		= (($page - 1) * $perPage) + 1;
+		$to 		= min($from + $perPage - 1, $total);
 
 		return array(
 			'data' => $data,
@@ -2736,7 +2740,8 @@ class MySQLQuery
 
 		if ($hasWhere) {
 			return $this->connector->affectedRows();
-		} else {
+		} 
+		else {
 			// For inserts, return last insert ID (for bulk, this is the first ID)
 			return $this->connector->lastInsertId();
 		}
