@@ -287,7 +287,7 @@ class View {
         //
         // Two rendering modes based on environment:
         //
-        // DEV MODE (file-based):
+        // DEBUG MODE (file-based):
         //   - Writes compiled template to vault/tmp/
         //   - Better error paths in stack traces (real file paths)
         //   - On error, temp file preserved for inspection
@@ -619,7 +619,7 @@ class View {
      */
     private static function storeCache($output)
     {
-        $cacheConfig = Registry::cache();
+        $cacheConfig = Registry::cacheConfig();
         $requestUri = Request::fullUri();
         $cacheKey = 'page:' . md5($requestUri);
         $lifetime = $cacheConfig['lifetime'] / 60;
